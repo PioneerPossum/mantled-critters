@@ -10,9 +10,13 @@ https://shop.pimoroni.com/collections/displays?page=1 - You want to know about d
 
 # Upcoming Steps
 Create ARKit face tracking/measurement application to allow us to extrapolate a .OBJ or .STL reference of our face.
+
 Utilize the exported file to create a reference that we can use the STL Mantled Beast Visor as an overlay. Scale to appropriate proportions.
+
 Create a shell to house the electronics. This can be printed in TPU or PETG/ABS. Need something that's resilient to heat and will not crack/destroy itself over a long period of time.
+
 Buy the pretty color LED matricies to start testing expressions using ProtoOS as a launchpad.
+
 Learning how to vacuum form a 3D printed shell of the visor from concept to one solid piece.
 
 # Long Term Steps
