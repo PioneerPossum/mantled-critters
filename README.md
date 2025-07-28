@@ -29,7 +29,6 @@ Integrate open-source eye tracking into the system. Perhaps facial tracking, if 
 Install a voice modulator, something to allow us to fully immerse ourself into the environment.
 
 Install a VR headset, or something that can allow us to visually enhance what we're seeing in front of us, rather than looking through a dimmed visor.
-
-  This may take some more research, as integrating a VR headset is not something you will commonly see. Perhaps understanding how fresnel/pancake lenses can come in handy here may help.
+This may take some more research, as integrating a VR headset is not something you will commonly see. Perhaps understanding how fresnel/pancake lenses can come in handy here may help.
 
 # Future steps will be added as we work on getting a baseline idea of how we want to approach this project.
