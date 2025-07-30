@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23727" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23727" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="fJU-yH-eWt">
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23721"/>
@@ -17,10 +17,10 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <arscnView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="gzv-pz-bPl">
-                                <rect key="frame" x="16" y="0.0" width="361" height="852"/>
+                                <rect key="frame" x="16" y="50" width="361" height="752"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                 <connections>
-                                    <outlet property="delegate" destination="fJU-yH-eWt" id="vEw-7M-L01"/>
+                                    <outlet property="delegate" destination="kdY-sw-FCg" id="z0x-Yf-Scn"/>
                                 </connections>
                             </arscnView>
                             <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="lBo-2B-CwQ">
@@ -29,7 +29,7 @@
                                 <state key="normal" title="Button"/>
                                 <buttonConfiguration key="configuration" style="filled" title="EXPORT OBJ"/>
                                 <connections>
-                                    <segue destination="fJU-yH-eWt" kind="show" id="bW7-fY-Lt4"/>
+                                    <action selector="exportOBJ:" destination="fJU-yH-eWt" eventType="touchUpInside" id="gEb-8x-QLJ"/>
                                 </connections>
                             </button>
                             <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="rav-z1-C0Q">
@@ -38,7 +38,7 @@
                                 <state key="normal" title="Button"/>
                                 <buttonConfiguration key="configuration" style="filled" title="EXPORT STL"/>
                                 <connections>
-                                    <segue destination="fJU-yH-eWt" kind="show" id="LwN-BW-hkR"/>
+                                    <action selector="exportSTL:" destination="fJU-yH-eWt" eventType="touchUpInside" id="wyB-Pf-dAi"/>
                                 </connections>
                             </button>
                         </subviews>
@@ -46,10 +46,9 @@
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                     </view>
                     <connections>
-                        <outlet property="ARSCNView" destination="gzv-pz-bPl" id="UOC-oA-pWi"/>
-                        <outlet property="exportOBJButton" destination="lBo-2B-CwQ" id="zx0-mE-nWx"/>
-                        <outlet property="exportSTLButton" destination="rav-z1-C0Q" id="L15-2L-K01"/>
-                        <outlet property="sceneView" destination="gzv-pz-bPl" id="R1o-tx-ItJ"/>
+                        <outlet property="exportOBJButton" destination="lBo-2B-CwQ" id="vJt-Xe-828"/>
+                        <outlet property="exportSTLButton" destination="rav-z1-C0Q" id="w6k-Am-vPd"/>
+                        <outlet property="sceneView" destination="gzv-pz-bPl" id="6B7-U2-fGh"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="hgx-TQ-WGc" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
