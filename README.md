@@ -16,6 +16,8 @@ https://www.digikey.com/en/products/detail/raspberry-pi/SC0195(9)/12159401?gclsr
 
 https://www.furbittenstudios.com/ - Where I got all the Protogen pre-built stuffs. This helps cut down on the physical design and prototyping and allows me to learn sensor integration and LED matricies.
 
+https://m.youtube.com/watch?v=uTMegWBuu_U&pp=0gcJCfwAo7VqN5tD - How to make a Protogen! I will be follow this guide to an extent.
+
 # Upcoming Steps
 - [x] Create ARKit face tracking/measurement application to allow us to extrapolate a .OBJ or .STL reference of our face.
 
