@@ -70,6 +70,10 @@ Adafruit RGB LED Matrix Driver w/ RPi HAT - https://www.digikey.com/en/products/
 110° FOV MLX90640 24x32 IR Thermal Image Camera Breakout - https://www.adafruit.com/product/4469
 
 Micro-HDMI to HDMI - https://www.adafruit.com/product/4302
+* Alternative - https://a.co/d/hBYLxMj
+* Additionally - https://a.co/d/0NOu7tR
+
+*HUD - TBD, RESEARCHING~*
 
 # Furbitten Studios BOM:
 Starfighter Helmet - https://www.furbittenstudios.com/product-page/starfighter-protogen-helmet-kit
