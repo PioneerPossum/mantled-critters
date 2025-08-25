@@ -18,6 +18,14 @@ https://www.furbittenstudios.com/ - Where I got all the Protogen pre-built stuff
 
 https://m.youtube.com/watch?v=uTMegWBuu_U&pp=0gcJCfwAo7VqN5tD - How to make a Protogen! I will be following this guide to an extent.
 
+*Thermals*
+
+https://learn.adafruit.com/raspberry-pi-hq-camera-lenses
+
+https://learn.adafruit.com/raspberry-pi-thermal-camera
+
+https://learn.adafruit.com/mlx90640-thermal-image-recording
+
 # Upcoming Steps
 - [x] Create ARKit face tracking/measurement application to allow us to extrapolate a .OBJ or .STL reference of our face.
 
@@ -30,6 +38,8 @@ https://m.youtube.com/watch?v=uTMegWBuu_U&pp=0gcJCfwAo7VqN5tD - How to make a Pr
 - [ ] Learning how to vacuum form a 3D printed shell of the visor from concept to one solid piece.
 
 - [ ] Double ear setup, because two ears means I can listen better! Probably... This will have to be custom designed using the pre-existing TPU ears.
+
+- [ ] Acquire HDMI capable small form factor displays since RPi can output 4k. (Definitely dont need anything crazy... Solid display instead of flexible.)
 
 # Long Term Steps
 - [ ] Integrate open-source eye tracking into the system. Perhaps facial tracking, if at all possible.
@@ -56,6 +66,10 @@ Adafruit 64x32 RGB LED Matrix - https://www.digikey.com/en/products/detail/adafr
 Adafruit RGB LED Matrix Driver w/ RPi HAT - https://www.digikey.com/en/products/detail/adafruit-industries-llc/3211/8535237?s=N4IgTCBcDaIIwFYwA4C0YEIOyoHYBMQBdAXyA
 
 40mm Fan (Research Required - need max CFM while keeping db low) - https://www.digikey.com/en/products/detail/sunon-fans/MF40101VX-1000U-A99/6198736
+
+110° FOV MLX90640 24x32 IR Thermal Image Camera Breakout - https://www.adafruit.com/product/4469
+
+Micro-HDMI to HDMI - https://www.adafruit.com/product/4302
 
 # Furbitten Studios BOM:
 Starfighter Helmet - https://www.furbittenstudios.com/product-page/starfighter-protogen-helmet-kit
