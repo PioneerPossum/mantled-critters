@@ -26,6 +26,9 @@ https://learn.adafruit.com/raspberry-pi-thermal-camera
 
 https://learn.adafruit.com/mlx90640-thermal-image-recording
 
+https://youtu.be/pn-TL_Mgko4 - MLX90640 and RPi integration.
+* Alternative - https://youtu.be/PiVwZoQ8_jQ
+
 # Upcoming Steps
 - [x] Create ARKit face tracking/measurement application to allow us to extrapolate a .OBJ or .STL reference of our face.
 
