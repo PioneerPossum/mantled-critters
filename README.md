@@ -26,11 +26,10 @@ https://learn.adafruit.com/raspberry-pi-thermal-camera
 
 https://learn.adafruit.com/mlx90640-thermal-image-recording
 
-https://youtu.be/pn-TL_Mgko4 - MLX90640 and RPi integration.
-* Alternative - https://youtu.be/PiVwZoQ8_jQ
-
 # Upcoming Steps
 - [x] Create ARKit face tracking/measurement application to allow us to extrapolate a .OBJ or .STL reference of our face.
+
+- [x] Get LED Matrix + Bonnet working.
 
 - [ ] Utilize the exported file to create a reference that we can use the STL Mantled Beast Visor as an overlay. Scale to appropriate proportions.
 
@@ -43,6 +42,7 @@ https://youtu.be/pn-TL_Mgko4 - MLX90640 and RPi integration.
 - [ ] Double ear setup, because two ears means I can listen better! Probably... This will have to be custom designed using the pre-existing TPU ears.
 
 - [ ] Acquire HDMI capable small form factor displays since RPi can output 4k. (Definitely dont need anything crazy... Solid display instead of flexible.)
+* May use DSI instead of micro-HDMI for internal visor display.
 
 # Long Term Steps
 - [ ] Integrate open-source eye tracking into the system. Perhaps facial tracking, if at all possible.
@@ -53,6 +53,7 @@ https://youtu.be/pn-TL_Mgko4 - MLX90640 and RPi integration.
 This may take some more research, as integrating a VR headset is not something you will commonly see. Perhaps understanding how fresnel/pancake lenses can come in handy here may help.
 
 - [ ] Additional displays internal to the visor to show HUD systems with various real-time environment data based on on-board sensors.
+*This has now become a wrist-mounted system as 5 inch screens are too large. Need smaller... 2 inch?
 
 - [ ] Additional camera/vision systems, separate to the VR headset idea, as an alternative, for situational awareness. Would a flexible display work inside the visor?
 
@@ -60,6 +61,8 @@ This may take some more research, as integrating a VR headset is not something y
 
 # Updates:
 2025.08.11 - Protogen visor and various 3D printed parts from FurBitten Studios have arrived. I75W matrix driver board arrived, however the panels I ordered were WAY too large -- 128x64 panel resolution (320x160mm), when I should have ordered 64x32 (160x80mm), which Pimoroni does not have. New parts are on-order from Digikey. Existing LED matricies will be used for a personal project. Goal for now is to get LED matricies working, and then look into additional sensors/tech.
+
+2025.08.27 - RPi and 64x32 matricies function with demos from https://github.com/hzeller/rpi-rgb-led-matrix. Now to figure out how to draw a face!
 
 # Electronic Parts BOM:
 Raspberry Pi 4, 8GB w/ GPIO Header - https://www.digikey.com/en/products/detail/raspberry-pi/SC0195-9/12159401?s=N4IgTCBcDaIMoGEAMBGAnAVgBRoJQgF0BfIA
