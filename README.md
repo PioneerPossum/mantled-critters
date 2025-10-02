@@ -92,4 +92,9 @@ TPU Ears - https://www.furbittenstudios.com/product-page/protogen-tpu-ears
 
 Vent Fan Add-on - https://www.furbittenstudios.com/product-page/fan-vent-add-on
 
+# External Idea Requests:
+"But can it play Minecraft?" - MicroHDMI to Female HDMI (or something similar, depending on setup) with a protected port, available on the helmet, to allow a user to play Minecraft on the headset.
+Custom modes will have to be set to disable all non-essential functions for better perfomance. Minecraft gameplay testing will take place soon.
+Idea suggested by: Claws
+
 # Future steps will be added as we work on getting a baseline idea of how we want to approach this project.
