@@ -18,6 +18,8 @@ https://www.furbittenstudios.com/ - Where I got all the Protogen pre-built stuff
 
 https://m.youtube.com/watch?v=uTMegWBuu_U&pp=0gcJCfwAo7VqN5tD - How to make a Protogen! I will be following this guide to an extent.
 
+https://www.raspberrypi.com/documentation/computers/ai.html - Instructions from RPi's website regarding AI Models powered by Halio NPUs. See future steps.
+
 *Thermals*
 
 https://learn.adafruit.com/raspberry-pi-hq-camera-lenses
@@ -64,8 +66,14 @@ This may take some more research, as integrating a VR headset is not something y
 
 2025.08.27 - RPi and 64x32 matricies function with demos from https://github.com/hzeller/rpi-rgb-led-matrix. Now to figure out how to draw a face!
 
+2026.01.26 - I moved to a new place between August and Janurary, so I have halted work for the time being. I am waiting for a few more workshop items to arrive. I have found an AI HAT I can use for the RPi5 which will allow me to run on-board AI LLM/VLMs up to ~6 billion parameters, which will be plenty enough for object detection and other features. I recently acquired an Intel RealSense d435i. Might be able to incorporate that with the depth sensor.
+
 # Electronic Parts BOM:
 Raspberry Pi 4, 8GB w/ GPIO Header - https://www.digikey.com/en/products/detail/raspberry-pi/SC0195-9/12159401?s=N4IgTCBcDaIMoGEAMBGAnAVgBRoJQgF0BfIA
+
+Raspberry Pi 5, 8GB w/ GPIO Header - https://www.digikey.com/en/products/detail/raspberry-pi/SC1432/21658257
+
+Raspberry Pi HAT+ 2 (40TOPS) - https://www.pishop.us/product/raspberry-pi-ai-hat-2/?src=raspberrypi
 
 Adafruit 64x32 RGB LED Matrix - https://www.digikey.com/en/products/detail/adafruit-industries-llc/5036/14671681?s=N4IgTCBcDaIIwFYwA4C0CAMBmAbKgdgCYgC6AvkA
 
@@ -74,6 +82,10 @@ Adafruit RGB LED Matrix Driver w/ RPi HAT - https://www.digikey.com/en/products/
 40mm Fan (Research Required - need max CFM while keeping db low) - https://www.digikey.com/en/products/detail/sunon-fans/MF40101VX-1000U-A99/6198736
 
 110° FOV MLX90640 24x32 IR Thermal Image Camera Breakout - https://www.adafruit.com/product/4469
+
+Intel RealSense d35i - https://store.realsenseai.com/buy-intel-realsense-depth-camera-d435i.html
+
+Intel RealSense d555 - https://store.realsenseai.com/buy-intel-realsense-depth-camera-d555.html
 
 Micro-HDMI to HDMI - https://www.adafruit.com/product/4302
 * Alternative - https://a.co/d/hBYLxMj
@@ -97,4 +109,8 @@ Vent Fan Add-on - https://www.furbittenstudios.com/product-page/fan-vent-add-on
 Custom modes will have to be set to disable all non-essential functions for better perfomance. Minecraft gameplay testing will take place soon.
 Idea suggested by: Claws
 
+"But can it play Minecraft?" Update 1, 2026.01.26 - I don not believe this is feasible to complete at this time. I have a reduced version of Minecraft on the RPi OS but have not attempted Ubuntu LTS or other avenues. Will need to test further.
+
 # Future steps will be added as we work on getting a baseline idea of how we want to approach this project.
+
+Noting for later -- the RPi 5 plus AI HAT can do a 17-point human pose estimation. Hmm...
