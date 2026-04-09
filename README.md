@@ -20,6 +20,8 @@ https://m.youtube.com/watch?v=uTMegWBuu_U&pp=0gcJCfwAo7VqN5tD - How to make a Pr
 
 https://www.raspberrypi.com/documentation/computers/ai.html - Instructions from RPi's website regarding AI Models powered by Halio NPUs. See future steps.
 
+https://github.com/hailo-ai/hailo-apps - The motherload of Hailo apps, some which are crucial to my use case and may potentially allow for quicker integration.
+
 *Thermals*
 
 https://learn.adafruit.com/raspberry-pi-hq-camera-lenses
@@ -67,6 +69,8 @@ This may take some more research, as integrating a VR headset is not something y
 2025.08.27 - RPi and 64x32 matricies function with demos from https://github.com/hzeller/rpi-rgb-led-matrix. Now to figure out how to draw a face!
 
 2026.01.26 - I moved to a new place between August and Janurary, so I have halted work for the time being. I am waiting for a few more workshop items to arrive. I have found an AI HAT I can use for the RPi5 which will allow me to run on-board AI LLM/VLMs up to ~6 billion parameters, which will be plenty enough for object detection and other features. I recently acquired an Intel RealSense d435i. Might be able to incorporate that with the depth sensor.
+
+2026.04.09 - Wow, time has flown by. Very involved with work and self-development so this has been on the backburner still. Looking to start tinkering a bit more now that we have the Hailo-10H HAT. Very promising github repo regarding this and some pre-built applications already available for the RPi. See https://github.com/hailo-ai/hailo-apps/blob/main/doc/user_guide/installation.md, https://github.com/hailo-ai/hailo-apps/blob/main/doc/user_guide/agentic_development.md (Agentic development on-board will be a HUGE game changer.)
 
 # Electronic Parts BOM:
 Raspberry Pi 4, 8GB w/ GPIO Header - https://www.digikey.com/en/products/detail/raspberry-pi/SC0195-9/12159401?s=N4IgTCBcDaIMoGEAMBGAnAVgBRoJQgF0BfIA
