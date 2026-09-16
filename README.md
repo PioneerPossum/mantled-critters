@@ -1,0 +1,120 @@
+# mantled-critters
+This will house all of the upcoming project files and discoveries regarding Mantled Beasts/Protogen Systems. See www.mantledbeasts.com to start.
+
+# Links and Stuff
+https://www.printables.com/model/1111257-mantle-beast-mask - STL Mantled Beast Visor. Starting reference template.
+
+https://youtu.be/xjmwgky0e2Q?si=_eidbPT9R8cHnfds - A DIY Project using a Raspberry Pi and an eye tracker with an OLED panel to display the pupil. Great way to introduce yourself into open source eye tracking.
+
+https://github.com/JEOresearch/terminatorsunglasses - The repository for the above-mentioned eye tracker setup.
+
+https://github.com/dimitrivlachos/Proto-OS - ProtoOS, Seems to not have been updated in the last few years but I reckon we can get a good head start using that software.
+
+https://shop.pimoroni.com/collections/displays?page=1 - You want to know about displays? Anything that is shiny and pretty that would probably interest a Mantled Beast? Go check this out.
+
+https://www.digikey.com/en/products/detail/raspberry-pi/SC0195(9)/12159401?gclsrc=aw.ds&gad_source=1&gad_campaignid=20228387720&gclid=Cj0KCQjwqebEBhD9ARIsAFZMbfz-UVNKifSWdpehyPJnD-BVP-z2VI05ALc8h2NcJ3Kw64STAc1txEIaApzTEALw_wcB - TensorFlow Lite object detection with Raspberry Pi4. Useful for on-board AI Object Detection.
+
+https://www.furbittenstudios.com/ - Where I got all the Protogen pre-built stuffs. This helps cut down on the physical design and prototyping and allows me to learn sensor integration and LED matricies.
+
+https://m.youtube.com/watch?v=uTMegWBuu_U&pp=0gcJCfwAo7VqN5tD - How to make a Protogen! I will be following this guide to an extent.
+
+https://www.raspberrypi.com/documentation/computers/ai.html - Instructions from RPi's website regarding AI Models powered by Halio NPUs. See future steps.
+
+https://github.com/hailo-ai/hailo-apps - The motherload of Hailo apps, some which are crucial to my use case and may potentially allow for quicker integration.
+
+*Thermals*
+
+https://learn.adafruit.com/raspberry-pi-hq-camera-lenses
+
+https://learn.adafruit.com/raspberry-pi-thermal-camera
+
+https://learn.adafruit.com/mlx90640-thermal-image-recording
+
+# Upcoming Steps
+- [x] Create ARKit face tracking/measurement application to allow us to extrapolate a .OBJ or .STL reference of our face.
+
+- [x] Get LED Matrix + Bonnet working.
+
+- [ ] Utilize the exported file to create a reference that we can use the STL Mantled Beast Visor as an overlay. Scale to appropriate proportions.
+
+- [ ] Create a shell to house the electronics. This can be printed in TPU or PETG/ABS. Need something that's resilient to heat and will not crack/destroy itself over a long period of time.
+
+- [x] Buy the pretty color LED matricies to start testing expressions using ProtoOS as a launchpad.
+
+- [ ] Learning how to vacuum form a 3D printed shell of the visor from concept to one solid piece.
+
+- [ ] Double ear setup, because two ears means I can listen better! Probably... This will have to be custom designed using the pre-existing TPU ears.
+
+- [ ] Acquire HDMI capable small form factor displays since RPi can output 4k. (Definitely dont need anything crazy... Solid display instead of flexible.)
+* May use DSI instead of micro-HDMI for internal visor display.
+
+# Long Term Steps
+- [ ] Integrate open-source eye tracking into the system. Perhaps facial tracking, if at all possible.
+
+- [ ] Install a voice modulator, something to allow us to fully immerse ourself into the environment.
+
+- [ ] Install a VR headset, or something that can allow us to visually enhance what we're seeing in front of us, rather than looking through a dimmed plastic visor.
+This may take some more research, as integrating a VR headset is not something you will commonly see. Perhaps understanding how fresnel/pancake lenses can come in handy here may help.
+
+- [ ] Additional displays internal to the visor to show HUD systems with various real-time environment data based on on-board sensors.
+*This has now become a wrist-mounted system as 5 inch screens are too large. Need smaller... 2 inch?
+
+- [ ] Additional camera/vision systems, separate to the VR headset idea, as an alternative, for situational awareness. Would a flexible display work inside the visor?
+
+- [ ] Auditory enhancements for situational awareness. Built-in headset/speakers!
+
+# Updates:
+2025.08.11 - Protogen visor and various 3D printed parts from FurBitten Studios have arrived. I75W matrix driver board arrived, however the panels I ordered were WAY too large -- 128x64 panel resolution (320x160mm), when I should have ordered 64x32 (160x80mm), which Pimoroni does not have. New parts are on-order from Digikey. Existing LED matricies will be used for a personal project. Goal for now is to get LED matricies working, and then look into additional sensors/tech.
+
+2025.08.27 - RPi and 64x32 matricies function with demos from https://github.com/hzeller/rpi-rgb-led-matrix. Now to figure out how to draw a face!
+
+2026.01.26 - I moved to a new place between August and Janurary, so I have halted work for the time being. I am waiting for a few more workshop items to arrive. I have found an AI HAT I can use for the RPi5 which will allow me to run on-board AI LLM/VLMs up to ~6 billion parameters, which will be plenty enough for object detection and other features. I recently acquired an Intel RealSense d435i. Might be able to incorporate that with the depth sensor.
+
+2026.04.09 - Wow, time has flown by. Very involved with work and self-development so this has been on the backburner still. Looking to start tinkering a bit more now that we have the Hailo-10H HAT. Very promising github repo regarding this and some pre-built applications already available for the RPi. See https://github.com/hailo-ai/hailo-apps/blob/main/doc/user_guide/installation.md, https://github.com/hailo-ai/hailo-apps/blob/main/doc/user_guide/agentic_development.md (Agentic development on-board will be a HUGE game changer.)
+
+# Electronic Parts BOM:
+Raspberry Pi 4, 8GB w/ GPIO Header - https://www.digikey.com/en/products/detail/raspberry-pi/SC0195-9/12159401?s=N4IgTCBcDaIMoGEAMBGAnAVgBRoJQgF0BfIA
+
+Raspberry Pi 5, 8GB w/ GPIO Header - https://www.digikey.com/en/products/detail/raspberry-pi/SC1432/21658257
+
+Raspberry Pi HAT+ 2 (40TOPS) - https://www.pishop.us/product/raspberry-pi-ai-hat-2/?src=raspberrypi
+
+Adafruit 64x32 RGB LED Matrix - https://www.digikey.com/en/products/detail/adafruit-industries-llc/5036/14671681?s=N4IgTCBcDaIIwFYwA4C0CAMBmAbKgdgCYgC6AvkA
+
+Adafruit RGB LED Matrix Driver w/ RPi HAT - https://www.digikey.com/en/products/detail/adafruit-industries-llc/3211/8535237?s=N4IgTCBcDaIIwFYwA4C0YEIOyoHYBMQBdAXyA
+
+40mm Fan (Research Required - need max CFM while keeping db low) - https://www.digikey.com/en/products/detail/sunon-fans/MF40101VX-1000U-A99/6198736
+
+110° FOV MLX90640 24x32 IR Thermal Image Camera Breakout - https://www.adafruit.com/product/4469
+
+Intel RealSense d35i - https://store.realsenseai.com/buy-intel-realsense-depth-camera-d435i.html
+
+Intel RealSense d555 - https://store.realsenseai.com/buy-intel-realsense-depth-camera-d555.html
+
+Micro-HDMI to HDMI - https://www.adafruit.com/product/4302
+* Alternative - https://a.co/d/hBYLxMj
+* Additionally - https://a.co/d/0NOu7tR
+
+*HUD - TBD, RESEARCHING~*
+
+# Furbitten Studios BOM:
+Starfighter Helmet - https://www.furbittenstudios.com/product-page/starfighter-protogen-helmet-kit
+
+Bird Protogen Visor - https://www.furbittenstudios.com/product-page/bird-protogen-visor
+
+Electronic Frames - https://www.furbittenstudios.com/product-page/electroncis-frames
+
+TPU Ears - https://www.furbittenstudios.com/product-page/protogen-tpu-ears
+
+Vent Fan Add-on - https://www.furbittenstudios.com/product-page/fan-vent-add-on
+
+# External Idea Requests:
+"But can it play Minecraft?" - MicroHDMI to Female HDMI (or something similar, depending on setup) with a protected port, available on the helmet, to allow a user to play Minecraft on the headset.
+Custom modes will have to be set to disable all non-essential functions for better perfomance. Minecraft gameplay testing will take place soon.
+Idea suggested by: Claws
+
+"But can it play Minecraft?" Update 1, 2026.01.26 - I don not believe this is feasible to complete at this time. I have a reduced version of Minecraft on the RPi OS but have not attempted Ubuntu LTS or other avenues. Will need to test further.
+
+# Future steps will be added as we work on getting a baseline idea of how we want to approach this project.
+
+Noting for later -- the RPi 5 plus AI HAT can do a 17-point human pose estimation. Hmm...
