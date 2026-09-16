@@ -1,0 +1,15 @@
+[Unit]
+Description=magi-cluster status dashboard (Flask, port 8090)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sinewave
+WorkingDirectory=/home/sinewave/magi_dashboard
+ExecStart=/usr/bin/python3 /home/sinewave/magi_dashboard/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

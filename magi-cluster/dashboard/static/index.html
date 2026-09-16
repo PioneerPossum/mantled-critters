@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>magi-cluster dashboard</title>
+<style>
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:           #0d0d0d;
+    --surface-1:      #1a1a19;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5; /* blue */
+    --series-2:       #d95926; /* orange */
+    --series-3:       #199e70; /* aqua */
+    --series-4:       #c98500; /* yellow */
+    --series-5:       #d55181; /* magenta */
+    --series-6:       #008300; /* green */
+    --series-7:       #9085e9; /* violet */
+    --series-8:       #e66767; /* red */
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --serious:        #ec835a;
+    --critical:       #e66767;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 20px 24px 60px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; font-weight: 600; }
+  .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
+  .subtitle .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background: var(--good); }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); margin: 28px 0 10px; font-weight: 600; }
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .grid { display: grid; gap: 12px; }
+  .grid-nodes { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .grid-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .grid-2col { grid-template-columns: 1.1fr 1fr; align-items: start; }
+  @media (max-width: 900px) { .grid-2col { grid-template-columns: 1fr; } }
+
+  .node-name { font-size: 15px; font-weight: 600; display:flex; align-items:center; gap:8px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .status-dot.up { background: var(--good); }
+  .status-dot.down { background: var(--critical); }
+  .node-role { color: var(--text-secondary); font-size: 12px; margin: 2px 0 10px; }
+  .node-stat { font-size: 12px; color: var(--text-secondary); margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .node-stat b { color: var(--text-primary); font-weight: 500; }
+  .badge { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-top: 6px; }
+  .badge.running { background: rgba(12,163,12,0.18); color: var(--good); }
+  .badge.stopped { background: rgba(230,103,103,0.18); color: var(--critical); }
+  .badge.unknown { background: rgba(137,135,129,0.18); color: var(--text-muted); }
+  .badge.healthy { background: rgba(12,163,12,0.18); color: var(--good); }
+  .badge.stale { background: rgba(250,178,25,0.18); color: var(--warning); }
+  .badge.failover { background: rgba(217,89,38,0.18); color: var(--series-2); }
+  .btn-row { margin-top: 10px; display: flex; gap: 6px; }
+  button {
+    background: var(--surface-1); border: 1px solid var(--border); color: var(--text-primary);
+    padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+  }
+  button:hover { border-color: var(--series-1); }
+  button:disabled { opacity: 0.5; cursor: default; }
+
+  .tile { text-align: left; }
+  .tile-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+  .tile-value { font-size: 26px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: var(--text-muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--gridline); font-size: 11px; text-transform: uppercase; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  .conf-bar { display:inline-block; height: 4px; background: var(--series-1); border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  .barchart-row { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
+  .barchart-label { width: 90px; font-size: 12px; color: var(--text-secondary); flex: none; text-align: right; }
+  .barchart-track { flex: 1; background: var(--gridline); border-radius: 4px; height: 16px; position: relative; overflow: hidden; }
+  .barchart-fill { background: var(--series-1); height: 100%; border-radius: 4px; }
+  .barchart-value { width: 40px; font-size: 12px; color: var(--text-primary); flex: none; font-variant-numeric: tabular-nums; }
+
+  .camera-wrap { background: #000; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  .camera-wrap img { display: block; width: 100%; height: auto; }
+  .camera-status { font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+
+  .topo-seg { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .topo-seg h3 { margin: 0 0 6px; font-size: 13px; }
+  .topo-seg ul { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--text-secondary); }
+  .topo-edge { font-size: 12px; color: var(--text-secondary); padding: 4px 0; border-bottom: 1px dashed var(--gridline); }
+  .topo-edge:last-child { border-bottom: none; }
+  .topo-edge b { color: var(--text-primary); }
+
+  .empty { color: var(--text-muted); font-size: 12px; padding: 10px 0; }
+  a.plain { color: var(--series-1); text-decoration: none; }
+
+  .chat-row { display: flex; gap: 8px; }
+  .chat-input {
+    flex: 1; background: var(--page); border: 1px solid var(--border); color: var(--text-primary);
+    padding: 8px 10px; border-radius: 6px; font-size: 13px; font-family: inherit; resize: vertical;
+    min-height: 38px;
+  }
+  .chat-input:focus { outline: none; border-color: var(--series-1); }
+  .chat-submit {
+    background: var(--series-1); border: 1px solid var(--series-1); color: #fff; font-weight: 600;
+    padding: 0 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .chat-submit:hover { opacity: 0.9; }
+  .chat-submit:disabled { opacity: 0.5; cursor: default; }
+  .chat-meta { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+  .chat-response {
+    margin-top: 12px; padding: 12px; background: var(--page); border: 1px solid var(--border);
+    border-radius: 8px; font-size: 13px; white-space: pre-wrap; word-break: break-word;
+    max-height: 420px; overflow-y: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    line-height: 1.5;
+  }
+  .chat-response.empty-state { color: var(--text-muted); font-family: inherit; }
+  .chat-response.thinking { color: var(--text-secondary); font-family: inherit; }
+  .chat-response.error { color: var(--critical); font-family: inherit; }
+  .spin {
+    display:inline-block; width:10px; height:10px; border-radius:50%;
+    border: 2px solid var(--gridline); border-top-color: var(--series-1);
+    animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: -1px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <h1>magi-cluster dashboard</h1>
+  <div class="subtitle"><span class="dot" id="hdr-dot"></span><span id="hdr-text">loading...</span></div>
+
+  <h2>Cluster node health</h2>
+  <div class="grid grid-nodes" id="nodes"></div>
+
+  <h2>Failover — melchior &amp; balthazar heartbeat</h2>
+  <div class="grid grid-nodes" id="failover" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));"></div>
+  <div class="node-stat" style="margin:8px 0 0;">Liveness-only (missed heartbeat), not tamper/intrusion detection. Staleness threshold and manual-override behavior: see magi-failover.md.</div>
+
+  <h2>Local LLM — offload to melchior (Hailo-10H)</h2>
+  <div class="card">
+    <div class="chat-row">
+      <textarea id="chat-input" class="chat-input" placeholder="Ask a question or request some code — runs locally on melchior's Hailo-10H, no cloud model involved..." rows="2"></textarea>
+      <button id="chat-submit" class="chat-submit" onclick="submitChat()">Send</button>
+      <button id="chat-newconv" class="chat-submit" style="background:var(--gridline);" onclick="newConversation()" title="Clear this session's conversation history">New conversation</button>
+    </div>
+    <div id="chat-response" class="chat-response empty-state">Response will appear here.</div>
+    <div id="chat-meta" class="chat-meta">Requests are serialized — melchior's Hailo-10H can run one LLM session at a time. General questions: a few seconds. Code generation: up to ~45-60s. Model: Qwen2.5-Coder-1.5B-Instruct. Math and weather questions can invoke real tools. Conversation history is remembered within a session — use "New conversation" to reset.</div>
+  </div>
+
+  <h2>Third-party LLM tooling — Open WebUI on balthazar</h2>
+  <div class="card">
+    <div class="node-stat" style="margin-bottom:10px;">Standard Ollama-compatible chat UI (Open WebUI) backed by balthazar's Hailo-10H via <code>hailo-ollama</code>. No tool-calling here (bare model, no math/weather/etc.) — this is the surface for any Ollama-client-compatible third-party tooling (Continue.dev, LangChain, etc.), not the primary chat. Opens in a new tab since it's a separate app on balthazar, not proxied through this dashboard.</div>
+    <a href="http://192.168.8.133:3000" target="_blank" rel="noopener" class="chat-submit" style="display:inline-block; text-decoration:none; padding:10px 18px;">Open Open WebUI →</a>
+  </div>
+
+  <h2>Camera — D555 live preview</h2>
+  <div class="camera-wrap" style="max-width: 640px;">
+    <img id="camera-img" src="/api/camera/mjpeg" alt="D555 live preview" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('div'),{className:'camera-status',textContent:'Preview unavailable — is the streamer running on audire-videre?'}))">
+  </div>
+  <div class="camera-status">Live MJPEG from audire-videre → same feed melchior's Hailo pipeline consumes over RTP.</div>
+
+  <h2>Data flow — magi:detections stream &amp; Postgres events</h2>
+  <div class="grid grid-tiles" id="tiles"></div>
+
+  <div class="grid grid-2col" style="margin-top:14px;">
+    <div class="card">
+      <div class="tile-label" style="margin-bottom:10px;">Detections by class (last 10 min)</div>
+      <div id="classbar"></div>
+    </div>
+    <div class="card">
+      <div class="tile-label" style="margin-bottom:10px;">Most recent detections</div>
+      <table>
+        <thead><tr><th>Device</th><th>Class</th><th>Confidence</th><th>Time</th></tr></thead>
+        <tbody id="recent-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Pi network topology</h2>
+  <div id="topology"></div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const fmtTime = (iso) => {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], {hour12:false});
+};
+const secAgo = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime())/1000));
+
+async function getJSON(url) {
+  const r = await fetch(url, {cache: "no-store"});
+  return r.json();
+}
+
+async function refreshNodes() {
+  let data;
+  try { data = await getJSON("/api/nodes"); } catch (e) { return; }
+  const nodes = data.nodes || {};
+  const order = ["melchior", "balthazar", "repositorium", "edgerunner"];
+  const wrap = $("#nodes");
+  wrap.innerHTML = "";
+  let upCount = 0;
+  for (const name of order) {
+    const n = nodes[name];
+    if (!n) continue;
+    if (n.reachable) upCount++;
+    const card = document.createElement("div");
+    card.className = "card";
+    let html = `<div class="node-name"><span class="status-dot ${n.reachable ? 'up' : 'down'}"></span>${name}</div>`;
+    html += `<div class="node-role">${n.role || ""}</div>`;
+    if (n.reachable) {
+      html += `<div class="node-stat">Uptime: <b>${n.uptime || "n/a"}</b></div>`;
+      html += `<div class="node-stat">Load (1/5/15m): <b>${n.load || "n/a"}</b></div>`;
+      html += `<div class="node-stat">SSH latency: <b>${n.latency_ms} ms</b></div>`;
+      if (n.detect_status !== undefined) {
+        html += `<div class="badge ${n.detect_status === 'running' ? 'running' : (n.detect_status === 'stopped' ? 'stopped' : 'unknown')}">detect: ${n.detect_status}</div>`;
+        html += `<div class="node-stat">Hailo device: <b>${n.hailo_device_present ? 'present' : 'not found'}</b></div>`;
+        html += `<div class="btn-row">
+          <button onclick="controlDetect('${name}','start')">Start</button>
+          <button onclick="controlDetect('${name}','restart')">Restart</button>
+          <button onclick="controlDetect('${name}','stop')">Stop</button>
+        </div>`;
+      }
+    } else {
+      html += `<div class="node-stat" style="color:var(--critical)">Unreachable${n.error ? ": " + n.error : ""}</div>`;
+    }
+    card.innerHTML = html;
+    wrap.appendChild(card);
+  }
+  $("#hdr-dot").className = "dot";
+  $("#hdr-dot").style.background = upCount === order.length ? "var(--good)" : (upCount === 0 ? "var(--critical)" : "var(--warning)");
+  $("#hdr-text").textContent = `${upCount}/${order.length} nodes reachable · updated ${new Date().toLocaleTimeString([], {hour12:false})}`;
+}
+
+async function controlDetect(node, action) {
+  const btns = event.target.parentElement.querySelectorAll("button");
+  btns.forEach(b => b.disabled = true);
+  try {
+    const r = await fetch(`/api/detect/${node}/${action}`, {method: "POST"});
+    await r.json();
+  } catch (e) { /* ignore, next poll will reflect reality */ }
+  setTimeout(refreshNodes, 1500);
+  setTimeout(() => btns.forEach(b => b.disabled = false), 2000);
+}
+
+const ROLE_LABEL = {vision: "Vision (detect)", language: "Language (LLM chat)"};
+
+async function refreshFailover() {
+  let data;
+  try { data = await getJSON("/api/failover/status"); } catch (e) { return; }
+  const devices = data.devices || {};
+  const wrap = $("#failover");
+  wrap.innerHTML = "";
+  for (const name of ["melchior", "balthazar"]) {
+    const d = devices[name];
+    if (!d) continue;
+    const card = document.createElement("div");
+    card.className = "card";
+    let html = `<div class="node-name">${name}`;
+    if (d.failover_active) html += ` <span class="badge failover">FAILOVER ACTIVE</span>`;
+    html += `</div>`;
+    for (const role of ["vision", "language"]) {
+      const rs = d.roles[role] || {};
+      const cls = rs.status === "healthy" ? "healthy" : (rs.status === "stale" ? "stale" : "stopped");
+      const ownership = rs.own_duty ? "normal duty" : (rs.running ? "failover-started" : "not normally run here");
+      html += `<div class="node-stat" style="margin-top:8px;">
+        ${ROLE_LABEL[role]} <span class="badge ${cls}">${rs.status ?? "unknown"}</span>
+        <span style="color:var(--text-muted)">(${ownership}${rs.age_s != null ? `, ${rs.age_s}s ago` : ""})</span>
+      </div>`;
+      html += `<div class="btn-row">
+        <button onclick="controlFailover('${name}','start','${role}')" title="Manually force-start this role locally on ${name}">Force start</button>
+        <button onclick="controlFailover('${name}','stop','${role}')" title="Manually stop this role locally on ${name} (refused if it's ${name}'s own normal duty)">Force stop</button>
+      </div>`;
+    }
+    card.innerHTML = html;
+    wrap.appendChild(card);
+  }
+}
+
+async function controlFailover(node, action, role) {
+  const btns = event.target.closest(".btn-row").querySelectorAll("button");
+  btns.forEach(b => b.disabled = true);
+  try {
+    await fetch(`/api/failover/${node}/${action}/${role}`, {method: "POST"});
+  } catch (e) { /* ignore, next poll reflects reality */ }
+  setTimeout(refreshFailover, 1500);
+  setTimeout(() => btns.forEach(b => b.disabled = false), 2500);
+}
+
+async function refreshData() {
+  let stats, streamInfo, recent;
+  try {
+    [stats, streamInfo, recent] = await Promise.all([
+      getJSON("/api/data/stats"), getJSON("/api/data/stream-info"), getJSON("/api/data/recent")
+    ]);
+  } catch (e) { return; }
+
+  const tiles = $("#tiles");
+  const group = (streamInfo.groups && streamInfo.groups[0]) || {};
+  tiles.innerHTML = `
+    <div class="card tile"><div class="tile-label">Stream length</div><div class="tile-value">${streamInfo.length ?? "—"}</div><div class="tile-sub">magi:detections (Redis)</div></div>
+    <div class="card tile"><div class="tile-label">Consumer lag</div><div class="tile-value">${group.lag ?? "—"}</div><div class="tile-sub">group: ${group.name ?? "n/a"}</div></div>
+    <div class="card tile"><div class="tile-label">Events last 60s</div><div class="tile-value">${stats.last_60s ?? "—"}</div><div class="tile-sub">${stats.total ?? "—"} total persisted</div></div>
+    <div class="card tile"><div class="tile-label">Rate</div><div class="tile-value">${stats.rate_per_min ?? "—"}</div><div class="tile-sub">events / min (5m avg)</div></div>
+  `;
+
+  const byClass = (stats.by_class_10min || []).slice(0, 8);
+  const maxC = Math.max(1, ...byClass.map(r => r.c));
+  const barwrap = $("#classbar");
+  if (byClass.length === 0) {
+    barwrap.innerHTML = `<div class="empty">No detections in the last 10 minutes.</div>`;
+  } else {
+    barwrap.innerHTML = byClass.map(r => `
+      <div class="barchart-row">
+        <div class="barchart-label">${r.class ?? "?"} (${r.device})</div>
+        <div class="barchart-track"><div class="barchart-fill" style="width:${(r.c/maxC*100).toFixed(1)}%"></div></div>
+        <div class="barchart-value">${r.c}</div>
+      </div>`).join("");
+  }
+
+  const body = $("#recent-body");
+  const events = recent.events || [];
+  if (events.length === 0) {
+    body.innerHTML = `<tr><td colspan="4" class="empty">No events yet.</td></tr>`;
+  } else {
+    body.innerHTML = events.slice(0, 15).map(e => `
+      <tr>
+        <td>${e.device}</td>
+        <td>${e.class ?? e.event_type}</td>
+        <td><span class="conf-bar" style="width:${Math.round((e.confidence||0)*40)}px"></span>${e.confidence != null ? (e.confidence*100).toFixed(0)+"%" : "—"}</td>
+        <td>${fmtTime(e.occurred_at)} (${secAgo(e.occurred_at)}s ago)</td>
+      </tr>`).join("");
+  }
+}
+
+async function loadTopology() {
+  let t;
+  try { t = await getJSON("/api/topology"); } catch (e) { return; }
+  const el = $("#topology");
+  let html = "";
+  for (const seg of t.segments) {
+    html += `<div class="topo-seg"><h3>${seg.name}</h3><div class="node-stat">Gateway: ${seg.gateway}</div><ul>${seg.nodes.map(n => `<li>${n}</li>`).join("")}</ul></div>`;
+  }
+  html += `<div class="card">`;
+  html += t.edges.map(e => `<div class="topo-edge"><b>${e.from}</b> → <b>${e.to}</b> — ${e.via}</div>`).join("");
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function getSessionId() {
+  let id = localStorage.getItem("magi_llm_session_id");
+  if (!id) {
+    id = (crypto.randomUUID ? crypto.randomUUID() : `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    localStorage.setItem("magi_llm_session_id", id);
+  }
+  return id;
+}
+
+async function newConversation() {
+  const out = $("#chat-response");
+  const meta = $("#chat-meta");
+  const oldId = localStorage.getItem("magi_llm_session_id");
+  try {
+    if (oldId) await fetch(`/api/llm/session/${oldId}`, {method: "DELETE"});
+  } catch (e) { /* best-effort; a fresh session id below still isolates history either way */ }
+  localStorage.removeItem("magi_llm_session_id");
+  getSessionId();
+  out.className = "chat-response empty-state";
+  out.textContent = "Response will appear here.";
+  meta.textContent = "New conversation started — previous context cleared.";
+}
+
+async function submitChat() {
+  const input = $("#chat-input");
+  const btn = $("#chat-submit");
+  const out = $("#chat-response");
+  const meta = $("#chat-meta");
+  const prompt = input.value.trim();
+  if (!prompt) return;
+
+  btn.disabled = true;
+  input.disabled = true;
+  out.className = "chat-response thinking";
+  out.innerHTML = `<span class="spin"></span>Thinking... (running on melchior's Hailo-10H, this can take up to a minute for code requests)`;
+
+  const t0 = performance.now();
+  try {
+    const r = await fetch("/api/llm/chat", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({prompt, session_id: getSessionId()}),
+    });
+    const data = await r.json();
+    if (r.status === 429) {
+      out.className = "chat-response error";
+      out.textContent = "melchior is busy processing another request (only one LLM session can run at a time). Try again in a moment.";
+    } else if (!r.ok || data.error) {
+      out.className = "chat-response error";
+      out.textContent = `Error: ${data.error || r.status}${data.detail ? " — " + data.detail : ""}`;
+    } else {
+      out.className = "chat-response";
+      out.textContent = data.response || "(empty response)";
+      const toolNote = data.tool_used ? ` · tool used: ${data.tool_used}` : "";
+      meta.textContent = `Answered in ${data.elapsed_s ?? ((performance.now()-t0)/1000).toFixed(1)}s · melchior (Hailo-10H) · Qwen2.5-Coder-1.5B-Instruct · requests are serialized${toolNote}`;
+    }
+  } catch (e) {
+    out.className = "chat-response error";
+    out.textContent = `Request failed: ${e}`;
+  } finally {
+    btn.disabled = false;
+    input.disabled = false;
+  }
+}
+
+$("#chat-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitChat();
+});
+
+function tick() {
+  refreshNodes();
+  refreshData();
+  refreshFailover();
+}
+tick();
+loadTopology();
+setInterval(refreshNodes, 5000);
+setInterval(refreshData, 3000);
+setInterval(refreshFailover, 5000);
+</script>
+</body>
+</html>
