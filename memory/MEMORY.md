@@ -1,0 +1,13 @@
+- [magi-cluster-status](magi-cluster-status.md) — current state of melchior/balthazar/repositorium/edgerunner, the Netgear switch, and the D555 camera
+- [gs308epp-switch-api](gs308epp-switch-api.md) — how to script the Netgear GS308EPP switch (login, CSRF hash, packed-JS unpacking, write endpoints)
+- [feedback-network-automation-caution](feedback-network-automation-caution.md) — lessons from real network-automation mistakes (secondary-IP conflicts, host mixups, session-lockout pacing)
+- [feedback-scoped-permissions](feedback-scoped-permissions.md) — Gil prefers narrow one-off permission rules over broad grants when auto-mode blocks an action
+- [realsense-caspar-sensor-fusion](realsense-caspar-sensor-fusion.md) — third Magi node "Caspar" (D435i sensor fusion), ARM64 pyrealsense2 blocker, RealSense Viewer GUI option
+- [esp32-av-ndi-streaming](esp32-av-ndi-streaming.md) — sibling project: ESP32S3 camera boards into Resolume/NDI, shares hardware with the fursuit HUD
+- [magi-offline-claude-proposal](magi-offline-claude-proposal.md) — Gil's proposal to use melchior/balthazar's Hailo-10H NPUs as local "physical agent" offload for Anthropic token reduction; see [[magi-local-llm-feasibility]] for the technical feasibility findings
+- [magi-local-llm-feasibility](magi-local-llm-feasibility.md) — feasibility research: Hailo-10H has an official GenAI/LLM stack (untested on melchior/balthazar so far), ~1.5-3B model class, concurrent with detection is supported, CPU/llama.cpp fallback assessed
+- [d555-poe-setup-guide](d555-poe-setup-guide.md) — official D555 PoE guide; explains why the old network-discovery hunt failed (private 192.168.11.x subnet, DDS not GVCP) and how to set up PoE/Ethernet if ever revisited
+- [magi-custom-model-goal](magi-custom-model-goal.md) — Gil's future "someday" goal to train/compile custom Hailo models via the Dataflow Compiler, not just use model-zoo weights
+- [hailo-frigate-standalone-ref](hailo-frigate-standalone-ref.md) — 3rd-party project proving Vision+GenAI can share one Hailo-10H concurrently (Frigate NVR + VLM chat)
+- [magi-github-sync](magi-github-sync.md) — syncing magi-cluster work to public mantled-critters repo; deploy-key auth done, credential-hygiene rules, repo-split question open
+- [magi-maps-tool-goal](magi-maps-tool-goal.md) — Gil's future "someday" goal: a directions/GPS tool for the LLM agent, leaning OSRM self-hosted over Google/Apple Maps
