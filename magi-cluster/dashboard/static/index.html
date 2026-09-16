@@ -143,21 +143,26 @@
   <div class="grid grid-nodes" id="failover" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));"></div>
   <div class="node-stat" style="margin:8px 0 0;">Liveness-only (missed heartbeat), not tamper/intrusion detection. Staleness threshold and manual-override behavior: see magi-failover.md.</div>
 
-  <h2>Local LLM — offload to melchior (Hailo-10H)</h2>
+  <h2 id="llm-heading">Local LLM — offload to balthazar (Hailo-10H)</h2>
   <div class="card">
     <div class="chat-row">
-      <textarea id="chat-input" class="chat-input" placeholder="Ask a question or request some code — runs locally on melchior's Hailo-10H, no cloud model involved..." rows="2"></textarea>
+      <textarea id="chat-input" class="chat-input" placeholder="Ask a question or request some code — runs locally on balthazar's Hailo-10H, no cloud model involved..." rows="2"></textarea>
       <button id="chat-submit" class="chat-submit" onclick="submitChat()">Send</button>
       <button id="chat-newconv" class="chat-submit" style="background:var(--gridline);" onclick="newConversation()" title="Clear this session's conversation history">New conversation</button>
     </div>
     <div id="chat-response" class="chat-response empty-state">Response will appear here.</div>
-    <div id="chat-meta" class="chat-meta">Requests are serialized — melchior's Hailo-10H can run one LLM session at a time. General questions: a few seconds. Code generation: up to ~45-60s. Model: Qwen2.5-Coder-1.5B-Instruct. Math and weather questions can invoke real tools. Conversation history is remembered within a session — use "New conversation" to reset.</div>
+    <div id="chat-meta" class="chat-meta">Normal duty: balthazar's Hailo-10H (falls back to melchior automatically if balthazar is down and melchior has taken over via failover). Requests are serialized — one LLM session at a time per chip. General questions: a few seconds. Code generation: up to ~45-60s. Model: Qwen2.5-Coder-1.5B-Instruct. Math and weather questions can invoke real tools (weather always asks for a location rather than guessing one). Conversation history is remembered within a session — use "New conversation" to reset.</div>
   </div>
 
-  <h2>Third-party LLM tooling — Open WebUI on balthazar</h2>
+  <h2>Third-party LLM tooling — Open WebUI on balthazar (on-demand)</h2>
   <div class="card">
-    <div class="node-stat" style="margin-bottom:10px;">Standard Ollama-compatible chat UI (Open WebUI) backed by balthazar's Hailo-10H via <code>hailo-ollama</code>. No tool-calling here (bare model, no math/weather/etc.) — this is the surface for any Ollama-client-compatible third-party tooling (Continue.dev, LangChain, etc.), not the primary chat. Opens in a new tab since it's a separate app on balthazar, not proxied through this dashboard.</div>
-    <a href="http://192.168.8.133:3000" target="_blank" rel="noopener" class="chat-submit" style="display:inline-block; text-decoration:none; padding:10px 18px;">Open Open WebUI →</a>
+    <div class="node-stat" style="margin-bottom:10px;">Standard Ollama-compatible chat UI (Open WebUI) backed by balthazar's Hailo-10H via <code>hailo-ollama</code>. Since the 2026-09-16 role flip this is <strong>on-demand, not always-on</strong> — balthazar's normal duty is the dashboard's own <code>magi-llm-api</code> (above), and the two can't run concurrently on one chip. Starting Open WebUI here stops <code>magi-llm-api</code> for the duration; stopping it restores <code>magi-llm-api</code>. No tool-calling in Open WebUI itself (bare model) — this is the surface for any Ollama-client-compatible third-party tooling (Continue.dev, LangChain, etc.).</div>
+    <div class="chat-row">
+      <button id="openwebui-start" class="chat-submit" onclick="openWebuiControl('start')">Start Open WebUI</button>
+      <button id="openwebui-stop" class="chat-submit" style="background:var(--gridline);" onclick="openWebuiControl('stop')">Stop Open WebUI</button>
+      <a href="http://192.168.8.133:3000" target="_blank" rel="noopener" class="chat-submit" style="display:inline-block; text-decoration:none; padding:10px 18px;">Open Open WebUI →</a>
+    </div>
+    <div id="openwebui-status" class="chat-meta">Toggle state unknown — click Start/Stop, or check the Failover panel above (balthazar's "language" role reflects whether magi-llm-api or hailo-ollama currently holds the chip).</div>
   </div>
 
   <h2>Camera — D555 live preview</h2>
@@ -388,7 +393,7 @@ async function submitChat() {
   btn.disabled = true;
   input.disabled = true;
   out.className = "chat-response thinking";
-  out.innerHTML = `<span class="spin"></span>Thinking... (running on melchior's Hailo-10H, this can take up to a minute for code requests)`;
+  out.innerHTML = `<span class="spin"></span>Thinking... (running on balthazar's Hailo-10H normally, this can take up to a minute for code requests)`;
 
   const t0 = performance.now();
   try {
@@ -398,9 +403,10 @@ async function submitChat() {
       body: JSON.stringify({prompt, session_id: getSessionId()}),
     });
     const data = await r.json();
+    const servedBy = data.served_by || "balthazar";
     if (r.status === 429) {
       out.className = "chat-response error";
-      out.textContent = "melchior is busy processing another request (only one LLM session can run at a time). Try again in a moment.";
+      out.textContent = `${servedBy} is busy processing another request (only one LLM session can run at a time). Try again in a moment.`;
     } else if (!r.ok || data.error) {
       out.className = "chat-response error";
       out.textContent = `Error: ${data.error || r.status}${data.detail ? " — " + data.detail : ""}`;
@@ -408,7 +414,9 @@ async function submitChat() {
       out.className = "chat-response";
       out.textContent = data.response || "(empty response)";
       const toolNote = data.tool_used ? ` · tool used: ${data.tool_used}` : "";
-      meta.textContent = `Answered in ${data.elapsed_s ?? ((performance.now()-t0)/1000).toFixed(1)}s · melchior (Hailo-10H) · Qwen2.5-Coder-1.5B-Instruct · requests are serialized${toolNote}`;
+      const failoverNote = data.failover ? " · FAILOVER (balthazar down, melchior covering)" : "";
+      meta.textContent = `Answered in ${data.elapsed_s ?? ((performance.now()-t0)/1000).toFixed(1)}s · served by ${servedBy} (Hailo-10H) · Qwen2.5-Coder-1.5B-Instruct · requests are serialized${toolNote}${failoverNote}`;
+      $("#llm-heading").textContent = `Local LLM — offload to ${servedBy} (Hailo-10H)${data.failover ? " — FAILOVER ACTIVE" : ""}`;
     }
   } catch (e) {
     out.className = "chat-response error";
@@ -416,6 +424,24 @@ async function submitChat() {
   } finally {
     btn.disabled = false;
     input.disabled = false;
+  }
+}
+
+async function openWebuiControl(action) {
+  const status = $("#openwebui-status");
+  status.textContent = `${action === "start" ? "Starting" : "Stopping"} Open WebUI on balthazar...`;
+  try {
+    const r = await fetch(`/api/openwebui/${action}`, {method: "POST"});
+    const data = await r.json();
+    if (data.ok) {
+      status.textContent = action === "start"
+        ? "Open WebUI started (magi-llm-api stopped on balthazar for the duration). Use the link above."
+        : "Open WebUI stopped; magi-llm-api restored as balthazar's normal duty.";
+    } else {
+      status.textContent = `Failed: ${data.stderr || data.error || "unknown error"}`;
+    }
+  } catch (e) {
+    status.textContent = `Request failed: ${e}`;
   }
 }
 

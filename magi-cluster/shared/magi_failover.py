@@ -53,6 +53,8 @@ Usage:
   python3 magi_failover.py ctl stop  vision    # manual override (dashboard)
   python3 magi_failover.py ctl start language
   python3 magi_failover.py ctl stop  language
+  python3 magi_failover.py ctl openwebui start   # on-demand: free the chip for COUPLED_SERVICE
+  python3 magi_failover.py ctl openwebui stop    # on-demand: hand the chip back to own_duty language
 """
 import logging
 import os
@@ -140,11 +142,22 @@ def ensure_coupled_stopped():
 def maybe_restore_coupled():
     """Ground-truth check (real systemctl state, not in-memory bookkeeping)
     so this is safe to call from both the daemon loop and a one-shot `ctl`
-    invocation: only restarts COUPLED_SERVICE if NONE of this node's
-    failover-role services are currently active."""
+    invocation: only restarts COUPLED_SERVICE if NONE of this node's role
+    services are currently active -- own_duty roles included.
+
+    Deliberately checks ALL roles, not just failover-started ones: on
+    melchior this is a no-op distinction (COUPLED_SERVICE is unset there, so
+    the function returns before ever reaching this check). But on balthazar,
+    since the 2026-09-16 role flip, language (magi-llm-api) is now
+    balthazar's own_duty role and it genuinely conflicts with
+    COUPLED_SERVICE (hailo-ollama) on the one Hailo-10H chip -- same as any
+    failover role would. A vision-failover recovery here must NOT restart
+    hailo-ollama out from under an active magi-llm-api (own_duty roles were
+    excluded from this check back when only non-own-duty roles could ever
+    conflict with COUPLED_SERVICE; that assumption no longer holds)."""
     if not COUPLED_SERVICE or is_active(COUPLED_SERVICE):
         return
-    if any(is_active(cfg["service"]) for cfg in ROLES.values() if not cfg["own_duty"]):
+    if any(is_active(cfg["service"]) for cfg in ROLES.values()):
         return
     logger.info(
         "FAILOVER RECOVERY: no failover roles active on %s anymore, "
@@ -238,6 +251,60 @@ def run_daemon():
         time.sleep(POLL_INTERVAL_S)
 
 
+def run_ctl_openwebui(action: str):
+    """On-demand toggle for COUPLED_SERVICE (Open WebUI's hailo-ollama on
+    balthazar) -- reuses the exact same stop-the-other-side/restore-it
+    coordination this module already does for failover roles vs.
+    COUPLED_SERVICE, just repurposed: instead of "free the chip for a
+    failover role", this is "free the chip because Gil explicitly wants
+    Open WebUI/third-party Ollama tooling right now", and the reverse hands
+    the chip back to this node's own normal duty (magi-llm-api) once he's
+    done. Same chip-sharing conflict as ever (see module docstring) --
+    hailo-ollama and any hailo_apps SHARED-group tool cannot run
+    concurrently -- so this is a strict handoff, not an overlap.
+
+    Used by ~/magi/balthazar/start_openwebui.sh / stop_openwebui.sh.
+    """
+    if not COUPLED_SERVICE:
+        print(
+            f"no COUPLED_SERVICE configured for {DEVICE} in publish.env -- "
+            f"nothing to toggle here", file=sys.stderr,
+        )
+        sys.exit(2)
+    lang_cfg = ROLES.get("language")
+    lang_is_own_duty = bool(lang_cfg and lang_cfg["own_duty"])
+
+    if action == "start":
+        if lang_is_own_duty and is_active(lang_cfg["service"]):
+            logger.warning(
+                "ON-DEMAND: stopping %s on %s to free the Hailo device for %s "
+                "(Gil wants Open WebUI/third-party Ollama tooling)",
+                lang_cfg["service"], DEVICE, COUPLED_SERVICE,
+            )
+            systemctl("stop", lang_cfg["service"])
+        if is_active(COUPLED_SERVICE):
+            logger.info("%s already active on %s, nothing to start", COUPLED_SERVICE, DEVICE)
+        else:
+            systemctl("start", COUPLED_SERVICE)
+    elif action == "stop":
+        if is_active(COUPLED_SERVICE):
+            logger.warning(
+                "ON-DEMAND: stopping %s on %s, done with Open WebUI for now",
+                COUPLED_SERVICE, DEVICE,
+            )
+            systemctl("stop", COUPLED_SERVICE)
+        else:
+            logger.info("%s already inactive on %s", COUPLED_SERVICE, DEVICE)
+        if lang_is_own_duty and not is_active(lang_cfg["service"]):
+            logger.info(
+                "ON-DEMAND: restoring %s as %s's normal duty", lang_cfg["service"], DEVICE,
+            )
+            systemctl("start", lang_cfg["service"])
+    else:
+        print(f"unknown action {action!r}, expected start|stop", file=sys.stderr)
+        sys.exit(2)
+
+
 def run_ctl(action: str, role: str):
     if role not in ROLES:
         print(f"unknown role {role!r}, expected one of {list(ROLES)}", file=sys.stderr)
@@ -255,7 +322,9 @@ def run_ctl(action: str, role: str):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) >= 4 and sys.argv[1] == "ctl":
+    if len(sys.argv) >= 4 and sys.argv[1] == "ctl" and sys.argv[2] == "openwebui":
+        run_ctl_openwebui(sys.argv[3])
+    elif len(sys.argv) >= 4 and sys.argv[1] == "ctl":
         run_ctl(sys.argv[2], sys.argv[3])
     else:
         run_daemon()

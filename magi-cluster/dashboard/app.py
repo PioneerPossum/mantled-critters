@@ -25,13 +25,25 @@ app = Flask(__name__, static_folder="static")
 
 DATA_API = "http://192.168.8.184:8801"
 MJPEG_SOURCE = "http://127.0.0.1:8092"
-# melchior's local Hailo-10H LLM API (magi-llm-api.service) — see
-# ~/magi/melchior/magi_llm_api.py and magi-local-llm-feasibility.md.
-# Serialized on melchior's side (one GenAI session at a time); this proxy
-# just forwards and relays whatever status melchior's own busy/error
-# handling returns, with a generous timeout since generation can take
-# several seconds to ~1 minute (code-gen prompts measured up to ~45s).
-LLM_API = "http://192.168.8.175:8802"
+# Local Hailo-10H LLM API (magi-llm-api.service, same code both nodes) — see
+# ~/magi/<node>/magi_llm_api.py and magi-local-llm-feasibility.md. Each node
+# serializes GenAI requests itself (HailoRT allows only one session at a time
+# per chip), so a 429 from there is passed straight through rather than
+# retried here.
+#
+# Role flip (2026-09-16): balthazar is now the default/normal-duty language
+# node (OWN_DUTY_ROLES=language in its publish.env); melchior's magi-llm-api
+# is failover-only (installed+disabled, only started by magi_failover.py or
+# a manual override if balthazar's language heartbeat goes stale). Default
+# target is balthazar; api_llm_chat() falls back to melchior only if
+# balthazar is actually unreachable/erroring, checking /api/failover/status
+# to confirm melchior has genuinely taken over language before routing there
+# (no point sending a real request to a melchior that isn't running it).
+LLM_API_BY_DEVICE = {
+    "balthazar": "http://192.168.8.133:8802",
+    "melchior": "http://192.168.8.175:8802",
+}
+LLM_DEFAULT_DEVICE = "balthazar"
 LLM_CHAT_TIMEOUT_S = 90
 
 SSH_TIMEOUT = 6
@@ -169,7 +181,7 @@ def api_topology():
             {
                 "name": "Netgear GS308EPP segment (10.0.0.0/24, Xfinity-modem side)",
                 "gateway": "10.0.0.214",
-                "nodes": ["edgerunner (10.0.0.137, also on Tailscale <your-tailnet>.ts.net)",
+                "nodes": ["edgerunner (10.0.0.137, also on Tailscale tail944f9e.ts.net)",
                           "D555 camera power splitter (switch port 5, data path unused -- camera is USB-direct to audire-videre)"],
             },
         ],
@@ -247,40 +259,102 @@ def api_failover_ctl(node, action, role):
     return jsonify(ok=(rc == 0), returncode=rc, stdout=out[-2000:], stderr=err[-2000:])
 
 
+def _llm_failover_device():
+    """If balthazar (the default) is down, check /api/failover/status and
+    return melchior only if melchior's language role is actually
+    running/healthy there right now (i.e. it genuinely took over via
+    failover, or was manually force-started) -- no point routing to a
+    melchior that isn't serving language. Returns None if no healthy
+    fallback is available (caller then just reports balthazar's own error)."""
+    try:
+        r = requests.get(f"{DATA_API}/api/failover/status", timeout=5)
+        r.raise_for_status()
+        status = r.json()
+        lang = status.get("devices", {}).get("melchior", {}).get("roles", {}).get("language", {})
+        if lang.get("running") and lang.get("status") in ("healthy", "stale"):
+            return "melchior"
+    except Exception as e:
+        app.logger.warning("failover status check failed while picking LLM fallback: %s", e)
+    return None
+
+
+@app.post("/api/openwebui/<action>")
+def api_openwebui_control(action):
+    """On-demand toggle for balthazar's Open WebUI/hailo-ollama (see
+    ~/magi/balthazar/start_openwebui.sh / stop_openwebui.sh, and
+    magi_failover.py's `ctl openwebui` mode) -- since the 2026-09-16 role
+    flip, balthazar's normal duty is magi-llm-api, so starting Open WebUI
+    means stopping magi-llm-api first (same chip-sharing conflict the vision
+    failover coupling logic was built around), and stopping it restores
+    magi-llm-api. Mirrors api_detect_control's SSH-a-script pattern above."""
+    if action not in ("start", "stop"):
+        return jsonify(ok=False, error="action must be start/stop"), 400
+    cmd = f"~/magi/balthazar/{action}_openwebui.sh"
+    rc, out, err = _ssh("balthazar", cmd, timeout=20)
+    return jsonify(ok=(rc == 0), returncode=rc, stdout=out[-2000:], stderr=err[-2000:])
+
+
 @app.post("/api/llm/chat")
 def api_llm_chat():
-    """Proxy to melchior's local Hailo-10H LLM API — 'offload to a physical
-    agent instead of cloud Claude'. melchior serializes GenAI requests
-    itself (HailoRT allows only one session at a time per chip), so a 429
-    from there is passed straight through rather than retried here."""
+    """Proxy to a node's local Hailo-10H LLM API — 'offload to a physical
+    agent instead of cloud Claude'. Defaults to balthazar (its normal duty
+    since the 2026-09-16 role flip); falls back to melchior only if
+    balthazar is unreachable/erroring AND melchior's language role shows
+    healthy in /api/failover/status (i.e. it's actually taken over). Simple
+    try-then-check-status fallback, not a load balancer — normal duty always
+    tries first."""
     body = request.get_json(silent=True) or {}
     prompt = (body.get("prompt") or "").strip()
     session_id = (body.get("session_id") or "").strip()
     if not prompt:
         return jsonify(error="missing 'prompt'"), 400
+
+    device = LLM_DEFAULT_DEVICE
     try:
         r = requests.post(
-            f"{LLM_API}/chat",
+            f"{LLM_API_BY_DEVICE[device]}/chat",
             json={"prompt": prompt, "session_id": session_id},
             timeout=LLM_CHAT_TIMEOUT_S,
         )
-        return jsonify(r.json()), r.status_code
+        payload = r.json()
+        payload["served_by"] = device
+        return jsonify(payload), r.status_code
     except requests.exceptions.Timeout:
-        return jsonify(error="timeout", detail=f"melchior's LLM did not respond within {LLM_CHAT_TIMEOUT_S}s"), 504
-    except Exception as e:
-        return jsonify(error=str(e)), 502
+        return jsonify(error="timeout", detail=f"{device}'s LLM did not respond within {LLM_CHAT_TIMEOUT_S}s", served_by=device), 504
+    except Exception as first_err:
+        fallback = _llm_failover_device()
+        if not fallback:
+            return jsonify(error=str(first_err), served_by=device), 502
+        try:
+            r = requests.post(
+                f"{LLM_API_BY_DEVICE[fallback]}/chat",
+                json={"prompt": prompt, "session_id": session_id},
+                timeout=LLM_CHAT_TIMEOUT_S,
+            )
+            payload = r.json()
+            payload["served_by"] = fallback
+            payload["failover"] = True
+            return jsonify(payload), r.status_code
+        except Exception as fallback_err:
+            return jsonify(
+                error=f"{device} failed ({first_err}); fallback {fallback} also failed ({fallback_err})",
+                served_by=None,
+            ), 502
 
 
 @app.delete("/api/llm/session/<session_id>")
 def api_llm_clear_session(session_id):
     """Proxy for the dashboard's 'New conversation' button — clears a
-    session's stored history (melchior forwards this to repositorium's
-    magi-conversation-api, which owns the actual Postgres table)."""
-    try:
-        r = requests.delete(f"{LLM_API}/session/{session_id}", timeout=SSH_TIMEOUT)
-        return jsonify(r.json()), r.status_code
-    except Exception as e:
-        return jsonify(error=str(e)), 502
+    session's stored history on whichever node currently owns language duty
+    (repositorium's magi-conversation-api actually owns the Postgres table,
+    so hitting either node's forwarder works, but we try the default first)."""
+    for device in (LLM_DEFAULT_DEVICE, "melchior"):
+        try:
+            r = requests.delete(f"{LLM_API_BY_DEVICE[device]}/session/{session_id}", timeout=SSH_TIMEOUT)
+            return jsonify(r.json()), r.status_code
+        except Exception as e:
+            last_err = e
+    return jsonify(error=str(last_err)), 502
 
 
 @app.get("/api/camera/mjpeg")

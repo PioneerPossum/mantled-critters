@@ -189,14 +189,18 @@ def stream_info():
 
 # Which roles each node runs as its own permanent duty (never auto-stopped
 # by magi_failover.py, even if it happens to be the one currently running
-# it) -- must match ROLES[...]["own_duty"] in magi_melchior/magi_failover.py
-# and magi_balthazar/magi_failover.py. See magi-failover.md.
+# it) -- must match OWN_DUTY_ROLES in ~/.config/magi/publish.env on each node
+# (read by magi_failover.py's ROLES[...]["own_duty"]). See magi-failover.md.
+#
+# Flipped 2026-09-16: balthazar is now the default language (magi-llm-api)
+# node and melchior is now vision-focused; melchior's language is
+# failover-only (same shape balthazar's roles used to be before the flip).
+# hailo-ollama/Open WebUI on balthazar is on-demand now (manually toggled via
+# start_openwebui.sh/stop_openwebui.sh, not tracked as a heartbeat role
+# either way -- same as before the flip).
 FAILOVER_NORMAL_DUTY = {
-    "melchior": {"vision", "language"},
-    "balthazar": set(),  # balthazar's real day-to-day duty is hailo-ollama
-                          # (not tracked as a heartbeat role); vision/language
-                          # heartbeat keys existing for balthazar always mean
-                          # it's actively covering for melchior.
+    "melchior": {"vision"},
+    "balthazar": {"language"},
 }
 FAILOVER_STALE_THRESHOLD_S = 90  # must match magi_failover.py's STALE_THRESHOLD_S
 

@@ -79,7 +79,11 @@ GEN_LOCK_TIMEOUT_S = 0  # non-blocking: reject immediately rather than queue
 BASE_SYSTEM_PROMPT = (
     "You are a helpful, concise AI assistant running locally on a Hailo-10H "
     "NPU (no cloud model involved). Answer general questions clearly and "
-    "write correct, working code when asked for coding help."
+    "write correct, working code when asked for coding help. "
+    "When a tool call needs information the user hasn't given you yet (such as "
+    "a location) and it isn't clear from the conversation so far, do not guess "
+    "or invent a value and do not call the tool — ask the user directly instead, "
+    "then wait for their answer."
 )
 
 # --- Conversation history (repositorium's magi-conversation-api) ---
@@ -144,6 +148,31 @@ def _ensure_initialized() -> None:
         "LLM ready in %.1fs (tools: %s)",
         time.perf_counter() - t0, ", ".join(_state["tools_lookup"].keys()),
     )
+
+
+def _location_mentioned_by_user(location: str, prompt_text: str, history: list) -> bool:
+    """Guard against the model hallucinating a real-sounding but invented city
+    for the weather tool (observed live: "New York City, USA" on a
+    location-less prompt) — the tool's own placeholder-string safety net
+    (tools/weather/tool.py) can't catch this since a hallucinated real city
+    passes its checks fine. This is the second layer: only let a weather
+    tool call through if the location the model chose was actually mentioned
+    by the user themselves somewhere in this turn's prompt or their own prior
+    turns in this session's history — not a perfect NER match, just a
+    case-insensitive substring check on the location name (and, if given,
+    the part before a comma, e.g. "Chicago" out of "Chicago, USA"), which is
+    enough to reject a location conjured from nowhere.
+    """
+    if not location:
+        return False
+    needle = location.split(",")[0].strip().lower()
+    if not needle:
+        return False
+    haystacks = [prompt_text or ""]
+    for turn in history:
+        if turn.get("role") == "user":
+            haystacks.append(turn.get("content") or "")
+    return any(needle in h.lower() for h in haystacks)
 
 
 def _load_history(session_id: str):
@@ -290,12 +319,31 @@ def chat():
         tool_call = tool_parsing.parse_function_call(raw_response)
         if tool_call is not None:
             tool_used = tool_call.get("name")
-            logger.info("Tool call detected: %s args=%s", tool_used, tool_call.get("arguments"))
-            try:
-                tool_result = tool_execution.execute_tool_call(tool_call, tools_lookup)
-            except Exception as e:
-                logger.exception("tool execution raised")
-                tool_result = {"ok": False, "error": str(e)}
+            tool_args = tool_call.get("arguments") or {}
+            logger.info("Tool call detected: %s args=%s", tool_used, tool_args)
+            if tool_used == "weather" and not _location_mentioned_by_user(
+                tool_args.get("location", ""), prompt_text, history,
+            ):
+                logger.warning(
+                    "Weather tool called with location %r not found anywhere in the "
+                    "user's own words this session -- treating as a hallucinated "
+                    "location, rejecting instead of executing", tool_args.get("location"),
+                )
+                tool_result = {
+                    "ok": False,
+                    "error": (
+                        "'location' is required and was empty, missing, or a placeholder — "
+                        "there is no default location. Do not guess or invent a city. Ask the "
+                        "user which location they mean, then call this tool again once they've "
+                        "told you."
+                    ),
+                }
+            else:
+                try:
+                    tool_result = tool_execution.execute_tool_call(tool_call, tools_lookup)
+                except Exception as e:
+                    logger.exception("tool execution raised")
+                    tool_result = {"ok": False, "error": str(e)}
             logger.info("Tool '%s' result: %s", tool_used, tool_result)
 
             def _tool_result_fallback_text():
@@ -303,7 +351,15 @@ def chat():
                 # result rather than anything the model generated.
                 if tool_result.get("ok"):
                     return str(tool_result.get("result") or tool_result.get("error") or "")
-                return f"(tool '{tool_used}' failed: {tool_result.get('error')})"
+                err = str(tool_result.get("error") or "")
+                # Special-case: weather tool's own missing/placeholder-location
+                # safety net (see tools/weather/tool.py) — surface this as an
+                # actual clarifying question to the user rather than the raw
+                # dev-facing error string, since this is the expected/handled
+                # "ask instead of guess" path, not a real failure.
+                if tool_used == "weather" and "no default location" in err.lower():
+                    return "Sure — which city (or city, country) would you like the weather for?"
+                return f"(tool '{tool_used}' failed: {err})"
 
             # Feed the tool result back so the model produces a natural-language
             # reply, same two-step pattern as agent.py's feed_tool_result().
