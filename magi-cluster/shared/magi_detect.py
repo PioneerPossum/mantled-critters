@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Real Hailo detection pipeline for melchior — publishes detections to the
+"""Real Hailo detection pipeline for this node — publishes detections to the
 magi Redis stream via publish_event(), replacing the synthetic test in
 magi_publish.py's __main__ block. Based on hailo_apps's stock detection.py
-example, with the print-only callback swapped for a Redis publish."""
+example, with the print-only callback swapped for a Redis publish.
+
+Shared script, deployed identically to melchior and balthazar (dedup
+refactor, 2026-09-16) — the only per-node difference is DEVICE, read from
+~/.config/magi/publish.env (same file/pattern magi_publish.py and the other
+magi-cluster scripts already use), not hardcoded here."""
 import os
 os.environ["GST_PLUGIN_FEATURE_RANK"] = "vaapidecodebin:NONE"
 
@@ -15,7 +20,7 @@ gi.require_version("Gst", "1.0")
 import hailo
 
 sys.path.insert(0, os.path.expanduser("~/magi"))
-from magi_publish import publish_event
+from magi_publish import publish_event, load_env
 
 from hailo_apps.python.pipeline_apps.detection.detection_pipeline import GStreamerDetectionApp
 from hailo_apps.python.core.gstreamer.gstreamer_app import app_callback_class
@@ -37,7 +42,8 @@ if not os.environ.get("DISPLAY"):
     _gst_app_mod.GST_VIDEO_SINK = "fakesink"
     hailo_logger.info("No DISPLAY detected; using fakesink (headless mode).")
 
-DEVICE = "melchior"
+load_env(os.path.expanduser("~/.config/magi/publish.env"))
+DEVICE = os.environ["DEVICE"]
 PUBLISH_INTERVAL = 1.0  # seconds between publishes per label — at 30fps, publishing
                         # every frame would flood the Redis stream/Postgres events
                         # table with near-duplicate detections of the same object

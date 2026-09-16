@@ -13,10 +13,11 @@ take over) and by the dashboard (read-only, same Redis credentials, for a
 status panel). Liveness only — this says nothing about tamper/intrusion,
 that's explicitly out of scope for this subsystem.
 
-Deploy note: DEVICE and ROLES below are hardcoded per node (same convention
-as magi_detect.py's `DEVICE = "melchior"` / `"balthazar"` constant) rather
-than derived from hostname, because the actual OS hostnames don't match the
-magi-cluster node names (balthazar's real hostname is "dinky-pai").
+Shared script, deployed identically to melchior and balthazar (dedup
+refactor, 2026-09-16) — DEVICE is read from ~/.config/magi/publish.env
+(same file/pattern magi_publish.py already uses) rather than hardcoded here,
+because the actual OS hostnames don't match the magi-cluster node names
+(balthazar's real hostname is "dinky-pai").
 """
 import logging
 import os
@@ -27,8 +28,6 @@ import redis
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("magi_heartbeat")
-
-DEVICE = "balthazar"
 
 # role name -> systemd unit that must be active() on this node for this
 # node to currently be claiming the role (normal duty OR failover-started).
@@ -55,6 +54,7 @@ def load_env(path):
 load_env(os.path.expanduser("~/.config/magi/publish.env"))
 REDIS_HOST = os.environ["REDIS_HOST"]
 REDIS_PASSWORD = os.environ["REDIS_PASSWORD"]
+DEVICE = os.environ["DEVICE"]
 
 r = redis.Redis(host=REDIS_HOST, password=REDIS_PASSWORD, decode_responses=True)
 

@@ -31,6 +31,22 @@ This does mean a real melchior outage takes Gil's Open WebUI down for the
 duration (balthazar can't run hailo-ollama and vision/language failover at
 the same time) -- an explicit, logged tradeoff, not a silent side effect.
 
+Shared script, deployed identically to melchior and balthazar (dedup
+refactor, 2026-09-16). Per-node identity/role config is read from
+~/.config/magi/publish.env (same file/pattern magi_publish.py and the other
+magi-cluster scripts already use) instead of being hardcoded here:
+  DEVICE=melchior|balthazar
+  PEER=the other node
+  OWN_DUTY_ROLES=comma-separated roles this node ALWAYS runs as normal duty
+                 (never stopped by this watchdog even after peer recovers --
+                 only monitored/self-healed). e.g. "vision,language" on
+                 melchior, empty on balthazar.
+  COUPLED_SERVICE=a local systemd unit that must be stopped before this node
+                  can start ANY failover role, and restarted once none of
+                  them are active anymore (e.g. "hailo-ollama" on balthazar).
+                  Leave unset/empty if there's no such conflicting service
+                  (melchior).
+
 Usage:
   python3 magi_failover.py            # run the daemon loop (systemd)
   python3 magi_failover.py ctl start vision    # manual override (dashboard)
@@ -49,28 +65,6 @@ import redis
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("magi_failover")
 
-DEVICE = "balthazar"
-PEER = "melchior"
-
-# role -> {service: local systemd unit for this role,
-#          own_duty: True if this node ALWAYS runs this role normally
-#                     (never stopped by this watchdog, even after peer
-#                     recovers -- only monitored/self-healed),
-#          peer_key: the peer's heartbeat key for this role}
-ROLES = {
-    "vision":   {"service": "magi-live-detect", "own_duty": False, "peer_key": "magi:heartbeat:melchior:vision"},
-    "language": {"service": "magi-llm-api",      "own_duty": False, "peer_key": "magi:heartbeat:melchior:language"},
-}
-
-# Service that must be stopped before this node can start ANY failover role,
-# and restarted once none of them are active anymore. None on melchior (no
-# such conflicting service exists there).
-COUPLED_SERVICE = "hailo-ollama"
-
-STALE_THRESHOLD_S = 90        # ~3-4 missed 15-20s heartbeats before acting
-POLL_INTERVAL_S = 25
-STABILIZATION_CHECKS = 2      # consecutive healthy polls before un-failing-over
-
 
 def load_env(path):
     if os.path.exists(path):
@@ -86,6 +80,24 @@ def load_env(path):
 load_env(os.path.expanduser("~/.config/magi/publish.env"))
 REDIS_HOST = os.environ["REDIS_HOST"]
 REDIS_PASSWORD = os.environ["REDIS_PASSWORD"]
+DEVICE = os.environ["DEVICE"]
+PEER = os.environ["PEER"]
+OWN_DUTY_ROLES = {x.strip() for x in os.environ.get("OWN_DUTY_ROLES", "").split(",") if x.strip()}
+COUPLED_SERVICE = os.environ.get("COUPLED_SERVICE", "").strip() or None
+
+# role -> {service: local systemd unit for this role,
+#          own_duty: True if this node ALWAYS runs this role normally
+#                     (never stopped by this watchdog, even after peer
+#                     recovers -- only monitored/self-healed),
+#          peer_key: the peer's heartbeat key for this role}
+ROLES = {
+    "vision":   {"service": "magi-live-detect", "own_duty": "vision" in OWN_DUTY_ROLES,   "peer_key": f"magi:heartbeat:{PEER}:vision"},
+    "language": {"service": "magi-llm-api",      "own_duty": "language" in OWN_DUTY_ROLES, "peer_key": f"magi:heartbeat:{PEER}:language"},
+}
+
+STALE_THRESHOLD_S = 90        # ~3-4 missed 15-20s heartbeats before acting
+POLL_INTERVAL_S = 25
+STABILIZATION_CHECKS = 2      # consecutive healthy polls before un-failing-over
 
 r = redis.Redis(host=REDIS_HOST, password=REDIS_PASSWORD, decode_responses=True)
 

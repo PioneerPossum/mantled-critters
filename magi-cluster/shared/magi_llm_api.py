@@ -3,6 +3,11 @@
 (Qwen2.5-Coder-1.5B-Instruct) as a `POST /chat` endpoint for the magi-cluster
 dashboard's "offload to a physical agent" feature.
 
+Shared script, deployed identically to melchior and balthazar (dedup
+refactor, 2026-09-16) — this file has no device-specific config at all (it
+doesn't need DEVICE/PEER; the Hailo/HailoRT calls are local to whichever
+node runs it), so no per-node config file entry is required here.
+
 Built on the exact code path proven working in the magi-local-llm-feasibility
 research (Session 4, 2026-09-16): `hailo_platform.genai.LLM` +
 `gen_ai_utils.llm_utils.streaming.generate_and_stream_response`, the same
@@ -293,6 +298,13 @@ def chat():
                 tool_result = {"ok": False, "error": str(e)}
             logger.info("Tool '%s' result: %s", tool_used, tool_result)
 
+            def _tool_result_fallback_text():
+                # Honest, always-valid fallback: render the tool's own real
+                # result rather than anything the model generated.
+                if tool_result.get("ok"):
+                    return str(tool_result.get("result") or tool_result.get("error") or "")
+                return f"(tool '{tool_used}' failed: {tool_result.get('error')})"
+
             # Feed the tool result back so the model produces a natural-language
             # reply, same two-step pattern as agent.py's feed_tool_result().
             tool_msg = message_formatter.messages_tool(json.dumps(tool_result))
@@ -300,31 +312,56 @@ def chat():
                 final_text = _generate([tool_msg], prefix="")
             except Exception as e:
                 logger.exception("post-tool generation failed")
-                # Fall back to a plain rendering of the tool result rather than failing the request.
-                if tool_result.get("ok"):
-                    final_text = str(tool_result.get("result") or tool_result.get("error") or "")
-                else:
-                    final_text = f"(tool '{tool_used}' failed: {tool_result.get('error')})"
+                final_text = _tool_result_fallback_text()
+            else:
+                # Post-tool generation can itself (a) degenerate to a near-empty
+                # reply, or (b) re-emit ANOTHER raw <tool_call>{...}</tool_call>
+                # block instead of a natural-language summary — the tool-aware
+                # system prompt is still primed, so the model just hallucinates
+                # a fresh, unexecuted tool call. Neither case should fall
+                # through to the generic fresh-context-from-original-prompt
+                # retry below: with the tool-aware system prompt still loaded,
+                # that retry just reproduces the same failure shape (a newly
+                # hallucinated tool_call block served raw to the user — this
+                # was the real bug, confirmed live on melchior 2026-09-16).
+                # Use the tool's own real result text instead — always valid.
+                if len(final_text.strip()) < 5:
+                    logger.warning(
+                        "Degenerate short post-tool response %r detected; "
+                        "using tool result text instead of restarting", final_text,
+                    )
+                    final_text = _tool_result_fallback_text()
+                elif tool_parsing.parse_function_call(final_text) is not None:
+                    logger.warning(
+                        "Post-tool generation re-emitted a tool_call instead of "
+                        "a summary (%r); using tool result text instead", final_text,
+                    )
+                    final_text = _tool_result_fallback_text()
 
-        # The small on-device model occasionally degenerates to a near-empty
-        # reply (observed: a single stray "<" token) after context-priming,
-        # both on the plain path and after tool-result feedback. One bounded
-        # fallback regeneration (fresh context, same system+history prime,
-        # plain user message) fixes this in practice without unbounded retry.
-        if len(final_text.strip()) < 5:
-            logger.warning("Degenerate short response %r detected, retrying once with fresh context + different seed", final_text)
-            try:
-                llm.clear_context()
-                context_manager.add_to_context(llm, context_messages, logger)
-                # Same seed/temp would deterministically reproduce the same
-                # degenerate output, so the fallback attempt varies both.
-                final_text = _generate(
-                    [message_formatter.messages_user(prompt_text)],
-                    seed=SEED + 1,
-                    temperature=max(TEMPERATURE, 0.7),
-                )
-            except Exception as e:
-                logger.warning("Fallback regeneration failed: %s", e)
+        else:
+            # No tool was used at all (plain Q&A/code-gen path). The small
+            # on-device model occasionally degenerates to a near-empty reply
+            # (observed: a single stray "<" token) after context-priming.
+            # One bounded fallback regeneration (fresh context, same
+            # system+history prime, different seed/temp) fixes this in
+            # practice without unbounded retry. Safe to restart from the
+            # original prompt ONLY here, because there's no tool-aware
+            # framing that could cause the retry to hallucinate a tool call
+            # (that failure mode is handled separately above).
+            if len(final_text.strip()) < 5:
+                logger.warning("Degenerate short response %r detected, retrying once with fresh context + different seed", final_text)
+                try:
+                    llm.clear_context()
+                    context_manager.add_to_context(llm, context_messages, logger)
+                    # Same seed/temp would deterministically reproduce the same
+                    # degenerate output, so the fallback attempt varies both.
+                    final_text = _generate(
+                        [message_formatter.messages_user(prompt_text)],
+                        seed=SEED + 1,
+                        temperature=max(TEMPERATURE, 0.7),
+                    )
+                except Exception as e:
+                    logger.warning("Fallback regeneration failed: %s", e)
 
         elapsed = time.perf_counter() - t0
         logger.info("chat request served in %.2fs (prompt=%r, tool=%s)", elapsed, prompt_text[:80], tool_used)
