@@ -11,6 +11,25 @@ copies differing only by hardcoded device-identity constants).
 - `magi_heartbeat.py` — failover liveness beacon (`magi-heartbeat.service`).
 - `magi_failover.py` — failover watchdog + manual `ctl start|stop <role>` override
   (`magi-failover.service`).
+- `weather_tool/tool.py`, `weather_tool/api.py` — mirror of the weather tool
+  `magi_llm_api.py` wires in (`hailo_apps.python.gen_ai_apps.agent_tools_example
+  .tools.weather`, vendored upstream in `~/hailo-apps` on each node, NOT part
+  of this repo's own import path — this is a synced reference copy, not the
+  live code path). Live originals: `~/hailo-apps/hailo_apps/python/gen_ai_apps
+  /agent_tools_example/tools/weather/{tool,api}.py` on melchior and balthazar
+  (identical on both). 2026-09-17 fix: the tool used to expose a
+  model-controlled `include_rain` boolean; the model called it for the same
+  location ~18 minutes apart, once with `include_rain: True` (got precipitation)
+  and once with `include_rain: False` (precipitation silently omitted, no
+  error) — read as the model contradicting itself about rain when really the
+  tool just wasn't asked for it. Fix: `include_rain` removed entirely from the
+  schema/validation; `get_weather_forecast()` now always fetches and returns
+  precipitation (amount + probability) on every successful call, and result
+  text now separates "Current conditions" from "Today's forecast" /
+  "Forecast for ... on <date>" so two different-timeframe answers read back
+  to back can't be misread as one contradictory "now" statement. Verified via
+  real `/chat` calls on both nodes and via the dashboard's `/api/llm/chat`
+  (see [[magi-local-llm-feasibility]]).
 
 ## Per-node identity/config
 
