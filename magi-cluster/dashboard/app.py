@@ -339,11 +339,31 @@ def api_llm_chat():
     if not prompt:
         return jsonify(error="missing 'prompt'"), 400
 
+    # Optional lat/lon (added 2026-09-18 for the find_nearby tool, "find me
+    # directions to the nearest X") -- a one-time navigator.geolocation
+    # .getCurrentPosition() reading the frontend attaches to this specific
+    # chat message (static/index.html's submitChat()), separate from the
+    # existing Live Navigation panel's continuous watchPosition(). Passed
+    # straight through to whichever node's magi_llm_api.py handles the
+    # request; not validated here beyond type coercion -- that node's
+    # find_nearby runner treats missing/invalid lat/lon as "no location
+    # available" rather than erroring, same as if this dashboard were never
+    # in the path at all (e.g. a future Telegram bot calling melchior/
+    # balthazar's /chat directly with its own location source).
+    llm_payload = {"prompt": prompt, "session_id": session_id}
+    try:
+        raw_lat, raw_lon = body.get("lat"), body.get("lon")
+        if raw_lat is not None and raw_lon is not None:
+            llm_payload["lat"] = float(raw_lat)
+            llm_payload["lon"] = float(raw_lon)
+    except (TypeError, ValueError):
+        pass
+
     device = LLM_DEFAULT_DEVICE
     try:
         r = requests.post(
             f"{LLM_API_BY_DEVICE[device]}/chat",
-            json={"prompt": prompt, "session_id": session_id},
+            json=llm_payload,
             timeout=LLM_CHAT_TIMEOUT_S,
         )
         payload = r.json()
@@ -358,7 +378,7 @@ def api_llm_chat():
         try:
             r = requests.post(
                 f"{LLM_API_BY_DEVICE[fallback]}/chat",
-                json={"prompt": prompt, "session_id": session_id},
+                json=llm_payload,
                 timeout=LLM_CHAT_TIMEOUT_S,
             )
             payload = r.json()

@@ -25,7 +25,9 @@ Each top-level directory here is one physical/logical node:
   small read-only/read-write HTTP APIs the dashboard/LLM stack depends on: data
   (`data_api.py`), LLM conversation history (`conversation_api.py`), and (2026-09-17)
   `tools_api.py` — the central execution backend for the local LLM agent's tools (math,
-  weather, and, as of the same day via a separate concurrent change, directions), port 8804,
+  weather, directions, and, as of 2026-09-18, `find_nearby` — "find me directions to the
+  nearest Best Buy" as one tool call: searches OpenStreetMap via the public Overpass API,
+  picks the nearest match, routes to it via the same OSRM logic `directions` uses), port 8804,
   `magi-tools-api.service`. Both melchior and balthazar's `magi_llm_api.py` call this over
   HTTP instead of running tool logic locally, closing a drift risk the two nodes' separately
   vendored `~/hailo-apps` checkouts had already hit twice (see `shared/README.md` and

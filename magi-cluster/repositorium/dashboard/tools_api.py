@@ -625,6 +625,20 @@ def run_directions(input_data: dict[str, Any]) -> dict[str, Any]:
     except requests.exceptions.RequestException as e:
         return {"ok": False, "error": f"Geocoding service error: {e}"}
 
+    return _drive_route_result(geo_origin, geo_dest)
+
+
+def _drive_route_result(geo_origin: dict[str, Any], geo_dest: dict[str, Any]) -> dict[str, Any]:
+    """Shared OSRM-driving-route-plus-maps-links helper, factored out of
+    run_directions() (added 2026-09-18) so run_find_nearby() below can reuse
+    the exact same routing/turn-extraction/maps-link logic once it has
+    already picked the nearest matching place, instead of duplicating it.
+    Both callers pass a dict with at least {'lat', 'lon', 'display_name'} for
+    each end -- run_directions() gets these from _geocode(), run_find_nearby()
+    builds geo_origin from the caller's own lat/lon directly (no geocoding
+    needed, it's already coordinates) and geo_dest from the chosen Overpass
+    match.
+    """
     try:
         coords = f"{geo_origin['lon']},{geo_origin['lat']};{geo_dest['lon']},{geo_dest['lat']}"
         r = requests.get(
@@ -641,8 +655,9 @@ def run_directions(input_data: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": False,
             "error": (
-                f"No driving route found between '{origin}' and '{destination}' — this instance "
-                "currently only has road data for Illinois."
+                f"No driving route found between '{geo_origin['display_name']}' and "
+                f"'{geo_dest['display_name']}' — this instance currently only has road data "
+                "for Illinois."
             ),
         }
 
@@ -675,7 +690,239 @@ def run_directions(input_data: dict[str, Any]) -> dict[str, Any]:
         result_parts.append("Key turns: " + "; ".join(shown) + suffix)
 
     maps_links = _build_maps_deep_links(geo_origin, geo_dest)
-    return {"ok": True, "result": " ".join(result_parts), **maps_links}
+    return {
+        "ok": True,
+        "result": " ".join(result_parts),
+        "distance_mi": round(distance_mi, 2),
+        "duration_str": duration_str,
+        **maps_links,
+    }
+
+
+# ============================================================================
+# find_nearby tool (added 2026-09-18) — "find me directions to the nearest
+# Best Buy" as a single tool call: search OpenStreetMap for places matching a
+# free-text query (brand/category name) near a given point via the public
+# Overpass API, pick the nearest by real haversine distance, then reuse the
+# exact same OSRM routing + maps-deep-link logic the `directions` tool uses
+# (_drive_route_result() above) to route to it.
+#
+# Location handling: this function takes lat/lon as plain required numeric
+# input -- it does NOT try to resolve "where is the user" itself, and the
+# tool's schema exposed to the model (see the vendored tools/find_nearby
+# module on melchior/balthazar) does not ask the model to supply lat/lon at
+# all. Per magi-local-llm-feasibility.md's weather-tool location-hallucination
+# lesson (Session 10), a small model asked to fill in coordinates will
+# sometimes invent plausible-looking ones -- so magi_llm_api.py's runner for
+# this tool always overwrites whatever the model put for lat/lon with the
+# real coordinates the dashboard frontend captured via
+# navigator.geolocation.getCurrentPosition() and sent alongside the chat
+# request; see that file's _find_nearby_runner(). If the frontend never
+# captured a location (denied/unavailable), that runner returns a clear
+# "I don't have your location" error without ever calling this endpoint at
+# all -- there is no path from here that silently guesses a location.
+#
+# Overpass reliability notes (learned by hand this session, real curl
+# testing against the public overpass-api.de instance before writing any of
+# this): the public instance is genuinely slow/fragile under any real load
+# -- single-clause node queries by name/brand regex reliably return in
+# ~15-25s, but stacking on a third broad tag-value clause (e.g. amenity/shop
+# regex, tried for broader category words like "coffee") measurably
+# increased the odds of a full request timeout/504, and repeated rapid
+# requests during testing triggered outright 504s from the server being
+# "too busy." So this deliberately stays to exactly two OR'd clauses
+# (name~query OR brand~query, both case-insensitive substring regex,
+# node-only -- no `way` search, which also measurably slowed the very first
+# test query down) rather than trying to build a fuller category-keyword
+# taxonomy. This handles brand-name queries well ("Best Buy") and handles
+# category words reasonably when they literally appear in a place's OSM
+# name (e.g. "CVS Pharmacy", "Walgreens Pharmacy" both match query
+# "pharmacy") -- it will not find, say, an unnamed-in-that-way "coffee shop"
+# whose OSM name is just "Starbucks". A real, known scope limit, not a bug.
+# ============================================================================
+
+OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_USER_AGENT = "magi-cluster-find-nearby-tool/1.0 (Gil's magi-cluster project)"
+FIND_NEARBY_DEFAULT_RADIUS_M = 15000  # 15km -- sensible default, not something the model has to specify
+FIND_NEARBY_WIDE_RADIUS_M = 45000     # one-time expansion retry if the default radius finds nothing
+FIND_NEARBY_MAX_RESULTS = 30
+# Overpass's own internal query timeout, in seconds -- kept comfortably under
+# the outer requests.post() timeout below so a real "no matches" or
+# malformed-query response has time to come back before our own client gives
+# up; observed real single-clause queries taking up to ~25s against the
+# public instance.
+OVERPASS_QUERY_TIMEOUT_S = 25
+OVERPASS_HTTP_TIMEOUT_S = 40
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    from math import asin, cos, radians, sin, sqrt
+
+    lat1, lon1, lat2, lon2 = map(radians, (lat1, lon1, lat2, lon2))
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    return 2 * 6371.0088 * asin(sqrt(a))  # Earth mean radius, km
+
+
+def _overpass_escape(text: str) -> str:
+    """Escape a free-text query for safe embedding inside an Overpass QL
+    string-literal regex (double-quoted). Also strips characters that have
+    no business being in a place name/category search and could otherwise
+    let user/model-controlled text break out of the intended regex literal
+    or change the query's structure (semicolons, brackets, parens)."""
+    text = text.replace("\\", "").replace('"', "")
+    for ch in ";[]{}()":
+        text = text.replace(ch, "")
+    return text.strip()
+
+
+def _overpass_search(query: str, lat: float, lon: float, radius_m: int) -> dict[str, Any]:
+    """One Overpass API call: nodes within radius_m of (lat, lon) whose name
+    OR brand tag matches `query` (case-insensitive substring). Returns
+    {"ok": True, "elements": [...]} or {"ok": False, "error": ...}."""
+    escaped = _overpass_escape(query)
+    if not escaped:
+        return {"ok": False, "error": "empty search query after sanitizing"}
+
+    ql = (
+        f'[out:json][timeout:{OVERPASS_QUERY_TIMEOUT_S}];'
+        f'(node(around:{radius_m},{lat},{lon})["name"~"{escaped}",i];'
+        f'node(around:{radius_m},{lat},{lon})["brand"~"{escaped}",i];);'
+        f'out center {FIND_NEARBY_MAX_RESULTS};'
+    )
+    try:
+        r = requests.post(
+            OVERPASS_URL,
+            data={"data": ql},
+            headers={"User-Agent": OVERPASS_USER_AGENT},
+            timeout=OVERPASS_HTTP_TIMEOUT_S,
+        )
+    except requests.exceptions.Timeout:
+        return {"ok": False, "error": "Place search timed out (Overpass API is a shared public service and can be slow) — try again in a moment."}
+    except requests.exceptions.RequestException as e:
+        return {"ok": False, "error": f"Place search service error: {e}"}
+
+    if r.status_code == 504 or "too busy" in r.text.lower():
+        return {"ok": False, "error": "Place search service is currently overloaded (public Overpass API) — try again in a moment."}
+    try:
+        r.raise_for_status()
+        data = r.json()
+    except (requests.exceptions.RequestException, ValueError) as e:
+        return {"ok": False, "error": f"Place search service returned an unexpected response: {e}"}
+
+    if data.get("remark"):
+        # Overpass reports its own errors (e.g. query timeout) inside a 200
+        # response body via "remark" rather than a non-2xx status.
+        return {"ok": False, "error": f"Place search service error: {data['remark']}"}
+
+    return {"ok": True, "elements": data.get("elements", [])}
+
+
+def _validate_find_nearby_input(payload: dict[str, Any]) -> dict[str, Any]:
+    query = str(payload.get("query", "")).strip()
+    if not query:
+        return {"ok": False, "error": "'query' (what to search for, e.g. 'Best Buy', 'coffee', 'pharmacy') is required."}
+
+    try:
+        lat = float(payload.get("lat"))
+        lon = float(payload.get("lon"))
+    except (TypeError, ValueError):
+        return {
+            "ok": False,
+            "error": (
+                "I don't have your location — try enabling location access, or tell me a "
+                "location to search near."
+            ),
+        }
+
+    return {"ok": True, "data": {"query": query, "lat": lat, "lon": lon}}
+
+
+def run_find_nearby(input_data: dict[str, Any]) -> dict[str, Any]:
+    validated = _validate_find_nearby_input(input_data)
+    if not validated.get("ok"):
+        return validated
+    data = validated["data"]
+    query, lat, lon = data["query"], data["lat"], data["lon"]
+
+    search = _overpass_search(query, lat, lon, FIND_NEARBY_DEFAULT_RADIUS_M)
+    if not search.get("ok"):
+        return search
+    elements = search["elements"]
+    used_radius_m = FIND_NEARBY_DEFAULT_RADIUS_M
+
+    if not elements:
+        # One-time wider retry, per the task's "don't overcomplicate this"
+        # guidance -- not an unbounded expansion loop.
+        search = _overpass_search(query, lat, lon, FIND_NEARBY_WIDE_RADIUS_M)
+        if not search.get("ok"):
+            return search
+        elements = search["elements"]
+        used_radius_m = FIND_NEARBY_WIDE_RADIUS_M
+
+    if not elements:
+        return {
+            "ok": False,
+            "error": (
+                f"No place matching '{query}' found within {used_radius_m // 1000}km of your "
+                "location. Try a different search term, or a larger area."
+            ),
+        }
+
+    matches = []
+    for el in elements:
+        if el.get("type") == "node":
+            el_lat, el_lon = el.get("lat"), el.get("lon")
+        else:
+            center = el.get("center") or {}
+            el_lat, el_lon = center.get("lat"), center.get("lon")
+        if el_lat is None or el_lon is None:
+            continue
+        name = el.get("tags", {}).get("name") or el.get("tags", {}).get("brand") or "(unnamed)"
+        dist_km = _haversine_km(lat, lon, el_lat, el_lon)
+        matches.append({
+            "name": name, "lat": el_lat, "lon": el_lon,
+            "distance_km": round(dist_km, 2), "distance_mi": round(dist_km * 0.621371, 2),
+        })
+
+    if not matches:
+        return {
+            "ok": False,
+            "error": f"Found results for '{query}' but none had usable coordinates. Try again.",
+        }
+
+    matches.sort(key=lambda m: m["distance_km"])
+    nearest = matches[0]
+
+    geo_origin = {"lat": lat, "lon": lon, "display_name": "your current location"}
+    geo_dest = {"lat": nearest["lat"], "lon": nearest["lon"], "display_name": nearest["name"]}
+    route = _drive_route_result(geo_origin, geo_dest)
+
+    if not route.get("ok"):
+        # Found a real nearest place, but couldn't route to it (e.g. outside
+        # OSRM's Illinois-only road coverage) -- still tell the user what was
+        # found rather than a bare routing error.
+        return {
+            "ok": True,
+            "result": (
+                f"Nearest match for '{query}': {nearest['name']} "
+                f"({nearest['distance_mi']:.1f} mi / {nearest['distance_km']:.1f} km away, straight-line). "
+                f"Could not compute driving directions: {route.get('error')}"
+            ),
+            "chosen_place": nearest,
+            "candidates_considered": len(matches),
+        }
+
+    result_text = f"Nearest {query} match: {nearest['name']}. " + route["result"]
+    return {
+        "ok": True,
+        "result": result_text,
+        "chosen_place": nearest,
+        "candidates_considered": len(matches),
+        "apple_maps_url": route.get("apple_maps_url"),
+        "google_maps_url": route.get("google_maps_url"),
+    }
 
 
 # ============================================================================
@@ -852,7 +1099,7 @@ def run_nav_route(input_data: dict[str, Any]) -> dict[str, Any]:
 
 @app.get("/health")
 def health():
-    return jsonify(ok=True, ts=time.time(), tools=["math", "weather", "directions"], nav=True)
+    return jsonify(ok=True, ts=time.time(), tools=["math", "weather", "directions", "find_nearby"], nav=True)
 
 
 @app.post("/tools/math")
@@ -879,6 +1126,15 @@ def tools_directions():
     logger.info("directions tool call: args=%s", body)
     result = run_directions(body)
     logger.info("directions tool result: %s", result)
+    return jsonify(result)
+
+
+@app.post("/tools/find_nearby")
+def tools_find_nearby():
+    body = request.get_json(silent=True) or {}
+    logger.info("find_nearby tool call: query=%r lat=%r lon=%r", body.get("query"), body.get("lat"), body.get("lon"))
+    result = run_find_nearby(body)
+    logger.info("find_nearby tool result: ok=%s", result.get("ok"))
     return jsonify(result)
 
 

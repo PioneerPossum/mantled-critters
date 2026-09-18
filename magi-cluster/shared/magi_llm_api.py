@@ -128,6 +128,11 @@ MAX_HISTORY_CHARS = 6000   # crude char budget (~1500 tokens) for replayed histo
 # handled before tool execution moved off-node.
 TOOLS_API = "http://192.168.8.184:8804"
 TOOLS_API_TIMEOUT_S = 15
+# find_nearby (added 2026-09-18) can involve two sequential Overpass API
+# calls server-side (default + one-time wider-radius retry, see tools_api.py)
+# against a public instance measured taking up to ~25s each during real
+# testing, plus an OSRM hop -- generous timeout accordingly.
+FIND_NEARBY_TIMEOUT_S = 65
 
 _lock = threading.Lock()
 _state = {
@@ -136,6 +141,14 @@ _state = {
     "initialized": False,
     "tools_lookup": None,
     "system_prompt_text": None,
+    # Per-request location, set fresh at the top of every chat() call (see
+    # below) and read only by _find_nearby_runner(). Safe as shared mutable
+    # state (not per-request-scoped) ONLY because _lock above already
+    # serializes this whole service to one /chat request in flight at a
+    # time -- there is no concurrent request that could see another
+    # request's coordinates. If that serialization is ever relaxed, this
+    # needs to become real per-request state instead.
+    "request_geo": None,
 }
 
 
@@ -162,6 +175,54 @@ def _remote_tool_runner(tool_name: str):
             return {"ok": False, "error": f"Tool service unavailable ({tool_name}): {e}"}
 
     return _runner
+
+
+def _find_nearby_runner(args: dict) -> dict:
+    """Dedicated runner for the find_nearby tool (added 2026-09-18) --
+    NOT built via the generic _remote_tool_runner() factory above, because
+    this tool needs real lat/lon injected from a channel the model never
+    touches, rather than passing through whatever arguments the model
+    generated verbatim.
+
+    This is the reliability fix the task called for: the find_nearby tool's
+    schema (see the vendored tools/find_nearby module) does not ask the
+    model for lat/lon at all, precisely so it can't hallucinate coordinates
+    the way the weather tool once hallucinated a city name (Session 10,
+    magi-local-llm-feasibility.md). Instead, the dashboard frontend grabs a
+    one-time navigator.geolocation.getCurrentPosition() reading when the
+    user sends a chat message and includes it as top-level lat/lon fields on
+    the POST /chat request body; chat() below stores that in
+    _state['request_geo'] before generation starts, and this runner reads it
+    at call time and merges it into the args actually sent to
+    repositorium's /tools/find_nearby -- overwriting anything the model
+    itself put there, not just filling gaps.
+
+    If the frontend never captured a location this turn (denied permission,
+    browser API unavailable, or a caller -- e.g. a future Telegram bot --
+    that doesn't send lat/lon at all), this returns a clear, honest error
+    without ever calling out to repositorium, matching the weather tool's
+    "ask, don't guess" pattern rather than silently failing or making up a
+    location.
+    """
+    geo = _state.get("request_geo")
+    if not geo:
+        return {
+            "ok": False,
+            "error": (
+                "I don't have your location — try enabling location access, or tell me a "
+                "location to search near."
+            ),
+        }
+    payload = {"query": args.get("query"), "lat": geo["lat"], "lon": geo["lon"]}
+    try:
+        r = requests.post(
+            f"{TOOLS_API}/tools/find_nearby", json=payload, timeout=FIND_NEARBY_TIMEOUT_S,
+        )
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        logger.warning("Remote tool 'find_nearby' call to %s failed: %s", TOOLS_API, e)
+        return {"ok": False, "error": f"Tool service unavailable (find_nearby): {e}"}
 
 
 def _ensure_initialized() -> None:
@@ -200,6 +261,7 @@ def _ensure_initialized() -> None:
     from hailo_apps.python.gen_ai_apps.agent_tools_example.tools import math as math_tool
     from hailo_apps.python.gen_ai_apps.agent_tools_example.tools import weather as weather_tool
     from hailo_apps.python.gen_ai_apps.agent_tools_example.tools import directions as directions_tool
+    from hailo_apps.python.gen_ai_apps.agent_tools_example.tools import find_nearby as find_nearby_tool
 
     tools = [
         {"name": math_tool.name, "tool_def": math_tool.TOOLS_SCHEMA[0],
@@ -208,6 +270,8 @@ def _ensure_initialized() -> None:
          "description": weather_tool.description, "runner": _remote_tool_runner("weather")},
         {"name": directions_tool.name, "tool_def": directions_tool.TOOLS_SCHEMA[0],
          "description": directions_tool.description, "runner": _remote_tool_runner("directions")},
+        {"name": find_nearby_tool.name, "tool_def": find_nearby_tool.TOOLS_SCHEMA[0],
+         "description": find_nearby_tool.description, "runner": _find_nearby_runner},
     ]
     tool_prompt_text = at_system_prompt.create_system_prompt(tools)
     _state["tools_lookup"] = {t["name"]: t for t in tools}
@@ -307,6 +371,25 @@ def chat():
     if not prompt_text:
         return jsonify(error="missing 'prompt'"), 400
 
+    # Optional lat/lon (added 2026-09-18 for the find_nearby tool) -- a
+    # one-time navigator.geolocation.getCurrentPosition() reading the
+    # dashboard frontend attaches to this specific chat message, distinct
+    # from the separate Live Navigation panel's continuous watchPosition().
+    # Not required: a caller that never sends these (an older frontend, a
+    # future Telegram bot without location access, geolocation denied) just
+    # means find_nearby will decline with a clear "I don't have your
+    # location" message rather than erroring or guessing -- see
+    # _find_nearby_runner() above. Always explicitly set (to None if absent)
+    # rather than left stale, so a request without location can never
+    # accidentally reuse a previous request's coordinates.
+    request_geo = None
+    try:
+        raw_lat, raw_lon = body.get("lat"), body.get("lon")
+        if raw_lat is not None and raw_lon is not None:
+            request_geo = {"lat": float(raw_lat), "lon": float(raw_lon)}
+    except (TypeError, ValueError):
+        request_geo = None
+
     got_lock = _lock.acquire(blocking=False)
     if not got_lock:
         return jsonify(
@@ -316,6 +399,7 @@ def chat():
                    "Try again shortly.",
         ), 429
 
+    _state["request_geo"] = request_geo  # see the comment above; read only by _find_nearby_runner()
     try:
         t0 = time.perf_counter()
         try:
@@ -499,6 +583,7 @@ def chat():
             tool_result=tool_result,
         )
     finally:
+        _state["request_geo"] = None  # never let a request's location outlive its own request
         _lock.release()
 
 

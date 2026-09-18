@@ -500,16 +500,18 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
-// "Open in Maps" links for the `directions` tool -- tool_result carries
-// apple_maps_url/google_maps_url straight through from repositorium's
-// tools_api.py (see run_directions()'s _build_maps_deep_links(), added
-// 2026-09-17), reusing the same Nominatim-geocoded coordinates already used
-// for OSRM routing rather than re-geocoding client-side. Only rendered for
-// a successful `directions` tool call that actually returned both URLs;
-// href values are plain lat,lon query strings (no user-controlled text),
-// so no escaping is needed there, only in the visible label text.
+// "Open in Maps" links for the `directions` and `find_nearby` tools --
+// tool_result carries apple_maps_url/google_maps_url straight through from
+// repositorium's tools_api.py (run_directions()'s _build_maps_deep_links(),
+// added 2026-09-17; find_nearby's routing reuses the same helper via the
+// shared _drive_route_result(), added 2026-09-18), reusing whatever
+// coordinates were already computed for OSRM routing rather than
+// re-geocoding client-side. Only rendered for a successful tool call that
+// actually returned both URLs; href values are plain lat,lon query strings
+// (no user-controlled text), so no escaping is needed there, only in the
+// visible label text.
 function mapsLinksHtml(toolUsed, toolResult) {
-  if (toolUsed !== "directions" || !toolResult || !toolResult.ok) return "";
+  if ((toolUsed !== "directions" && toolUsed !== "find_nearby") || !toolResult || !toolResult.ok) return "";
   const { apple_maps_url, google_maps_url } = toolResult;
   if (!apple_maps_url && !google_maps_url) return "";
   let html = `<div class="maps-links">`;
@@ -639,6 +641,29 @@ async function newConversation() {
   setThreadEmpty("New conversation started — say something to begin.");
 }
 
+// One-time location grab for the find_nearby tool ("find me directions to
+// the nearest Best Buy"), added 2026-09-18. Deliberately
+// navigator.geolocation.getCurrentPosition() -- a single reading -- NOT the
+// continuous watchPosition() the separate Live Navigation panel below uses;
+// this is just "where am I right now, for this one message," not live
+// tracking. maximumAge lets the browser reuse a recent cached fix (up to
+// 60s old) instead of forcing a fresh GPS lock on every single chat send,
+// and a short timeout means a slow/unavailable/denied location never stalls
+// sending a message for long -- this resolves to null on ANY failure
+// (denied, unsupported, timeout), and the backend (magi_llm_api.py's
+// find_nearby runner) already handles "no location" with a clear message
+// rather than erroring, so there is nothing else to special-case here.
+function getOneShotLocation(timeoutMs = 4000) {
+  return new Promise((resolve) => {
+    if (!("geolocation" in navigator)) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({lat: pos.coords.latitude, lon: pos.coords.longitude}),
+      () => resolve(null),
+      {enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60000}
+    );
+  });
+}
+
 async function submitChat() {
   const input = $("#chat-input");
   const btn = $("#chat-submit");
@@ -673,11 +698,17 @@ async function submitChat() {
     thinkText.textContent = `Still working... (${secs}s elapsed — code requests can take up to ~60s)`;
   }, 1000);
 
+  // Resolves quickly if permission was already granted (browser caches
+  // it); only actually prompts the user the first time this origin asks.
+  const geo = await getOneShotLocation();
+
   try {
+    const chatBody = {prompt, session_id: getSessionId()};
+    if (geo) { chatBody.lat = geo.lat; chatBody.lon = geo.lon; }
     const r = await fetch("/api/llm/chat", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({prompt, session_id: getSessionId()}),
+      body: JSON.stringify(chatBody),
     });
     const data = await r.json();
     const servedBy = data.served_by || "balthazar";

@@ -74,6 +74,113 @@ copies differing only by hardcoded device-identity constants).
   migration itself), but flagged here for whoever picks up `directions` or
   revisits tool-selection reliability next.
 
+- **A fourth tool, `find_nearby`, added 2026-09-18** — "find me directions to
+  the nearest Best Buy" as one tool call: searches OpenStreetMap via the
+  public Overpass API (`https://overpass-api.de/api/interpreter`, no API key)
+  for places whose `name` or `brand` tag matches a free-text query within
+  15km of a point (one-time 45km retry if nothing's found), picks the
+  nearest by real haversine distance, then reuses `directions`' own OSRM
+  routing + Apple/Google Maps deep-link logic (factored out into a shared
+  `_drive_route_result()` helper in `tools_api.py`) to route there. Live
+  execution: `run_find_nearby()` / `POST /tools/find_nearby` in
+  `repositorium/dashboard/tools_api.py`. Vendored schema/metadata-only copy:
+  `shared/find_nearby_tool/{tool.py,__init__.py}`, live path
+  `~/hailo-apps/.../agent_tools_example/tools/find_nearby/` on both nodes
+  (also has a real, working standalone `run()` for structural parity with
+  the other tools, same as `directions`, even though `magi_llm_api.py` never
+  calls it — the actual execution path is `tools_api.py`).
+
+  **Location handling — the reliability-critical part.** The tool's schema
+  shown to the model asks for `query` only; lat/lon are deliberately NOT
+  something the model is asked to supply (learned from
+  [[magi-local-llm-feasibility]] Session 10's weather-tool
+  location-hallucination bug — never trust a small model to correctly
+  produce structured location data it wasn't explicitly given). Instead: the
+  dashboard frontend (`dashboard/static/index.html`) does a one-time
+  `navigator.geolocation.getCurrentPosition()` call in `submitChat()` when
+  the user sends a message (a new `getOneShotLocation()` helper, 4s timeout,
+  resolves to `null` on any failure) — deliberately NOT `watchPosition()`,
+  which the separate Live Navigation panel already uses for continuous
+  tracking; this is a single "where am I right now, for this message" read.
+  If successful, `lat`/`lon` ride along as top-level fields on the
+  `POST /api/llm/chat` body, alongside `prompt`/`session_id`.
+  `dashboard/app.py`'s proxy forwards them as-is to whichever node handles
+  the request. In `magi_llm_api.py`, `chat()` reads `lat`/`lon` off the
+  request body into `_state["request_geo"]` (reset to `None` at the end of
+  every request in `finally`, so a request without location can never reuse
+  a previous one's) — a new `_find_nearby_runner()` (NOT built via the
+  generic `_remote_tool_runner()` factory the other three tools use) reads
+  that at call time and merges the *real* coordinates into the args sent to
+  `tools_api.py`, overwriting anything the model itself put there. This is
+  safe as shared mutable state (rather than genuinely per-request-scoped) only
+  because the existing `_lock` already serializes the whole service to one
+  `/chat` request in flight at a time — noted inline in the code as a
+  constraint for anyone who later relaxes that serialization. If the
+  frontend never captured a location this turn (denied, unsupported, or a
+  caller that doesn't send it at all — e.g. a future Telegram bot with its
+  own location source, or none), the runner returns "I don't have your
+  location — try enabling location access, or tell me a location to search
+  near." without ever calling out to `tools_api.py` — same "ask, don't
+  guess" spirit as the weather-tool fix, and the exact reason `find_nearby`
+  is a clean, reusable HTTP endpoint on `tools_api.py` rather than tangled
+  into dashboard-specific code: any future caller (this dashboard, or a
+  Telegram bot with its own location source) gets the same tool, the
+  location-injection responsibility lives entirely in `magi_llm_api.py`'s
+  runner, not in `tools_api.py` itself.
+
+  **Token-budget regression hit and fixed, same session** — adding a 4th
+  tool's schema pushed the system prompt to 2141/2048 tokens, over the
+  model's hard context limit (the exact failure class Session 12 hit when
+  `directions` became the 3rd tool: `[HailoRT] Context exceeds capacity`,
+  which degrades ALL tools' responses, not just the new one). Trimmed
+  `find_nearby`'s own description/schema to the bare minimum (a 2-sentence,
+  ~140-char description, terser than `math`'s let alone `weather`'s) — still
+  20-37 tokens over. Root cause: the budget was already maxed out by the 3
+  existing tools before `find_nearby` was even added (confirmed by dumping
+  the actual rendered system prompt — 8120 chars / ~2030 tokens with 3
+  tools). Fixed by trimming `math`'s own vendored description (the largest,
+  1359 chars), removing a redundant `TOOL CALL FORMAT`/`Examples` block that
+  fully duplicated content `system_prompt.create_system_prompt()` already
+  states once, generically, for every registered tool — cut to 866 chars, no
+  loss of any instruction the model doesn't already see elsewhere. Confirmed
+  fixed: zero "Context exceeds capacity" log lines across repeated real
+  `/chat` calls (math/weather/directions/find_nearby) on both nodes after
+  the trim, versus reproducing the exact error twice before it. Synced
+  reference copy: `shared/math_tool/tool.py` (mirrors the `weather_tool/`
+  pattern above — live path is still
+  `~/hailo-apps/.../agent_tools_example/tools/math/tool.py` on each node,
+  not this repo's own import path).
+
+  **Verified end-to-end, both nodes then the live dashboard, real (non-mocked)
+  requests**: melchior direct `/chat` — "find me directions to the nearest
+  Best Buy" with `lat=41.8781, lon=-87.6298` (downtown Chicago) → real
+  Overpass search found 4 real Best Buy locations, nearest picked (0.97mi),
+  real OSRM route ("1.4 mi (2.3 km), about 4 min", real turn-by-turn), real
+  Apple/Google Maps links. Same query repeated on balthazar (the live
+  default node) direct `/chat` — identical real result. No-location path
+  verified separately: same phrasing with no `lat`/`lon` on the request →
+  "I don't have your location — try enabling location access, or tell me a
+  location to search near." (exact match to the task's suggested wording).
+  Full path verified last: `POST http://127.0.0.1:8090/api/llm/chat` (the
+  dashboard's own proxy, simulating exactly what the frontend sends once
+  geolocation succeeds) → `served_by: "balthazar"`, same real Best Buy
+  result. Regression checks: plain no-tool chat, `weather`, and `directions`
+  (including its new `distance_mi`/`duration_str` fields, added when
+  `_drive_route_result()` was factored out for reuse) all still work
+  correctly post-deploy on both nodes and through the dashboard; the
+  separate Live Navigation panel's `/api/nav/route` (same `tools_api.py`
+  process) re-tested and unaffected. Power safety followed throughout —
+  `vcgencmd get_throttled` checked before/after every heavy step on both
+  nodes, only historical `0x50000` bits seen, no live-active throttling.
+  **Overpass reliability note**: the public instance genuinely throttles/
+  times out under real-world load — hit several `504`/timeout responses
+  during development (both from this project's own repeated test traffic
+  and, separately, from the service just being slow) — `run_find_nearby()`
+  surfaces these as a clear, honest tool error ("Place search service is
+  currently overloaded... try again in a moment") rather than crashing or
+  hanging, and this was itself observed live during testing, not just
+  written defensively.
+
 ## Per-node identity/config
 
 `magi_detect.py`, `magi_heartbeat.py`, and `magi_failover.py` all read their
