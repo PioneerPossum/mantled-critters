@@ -431,38 +431,35 @@ def chat():
                     return "Sure — which city (or city, country) would you like the weather for?"
                 return f"(tool '{tool_used}' failed: {err})"
 
-            # Feed the tool result back so the model produces a natural-language
-            # reply, same two-step pattern as agent.py's feed_tool_result().
-            tool_msg = message_formatter.messages_tool(json.dumps(tool_result))
-            try:
-                final_text = _generate([tool_msg], prefix="")
-            except Exception as e:
-                logger.exception("post-tool generation failed")
-                final_text = _tool_result_fallback_text()
-            else:
-                # Post-tool generation can itself (a) degenerate to a near-empty
-                # reply, or (b) re-emit ANOTHER raw <tool_call>{...}</tool_call>
-                # block instead of a natural-language summary — the tool-aware
-                # system prompt is still primed, so the model just hallucinates
-                # a fresh, unexecuted tool call. Neither case should fall
-                # through to the generic fresh-context-from-original-prompt
-                # retry below: with the tool-aware system prompt still loaded,
-                # that retry just reproduces the same failure shape (a newly
-                # hallucinated tool_call block served raw to the user — this
-                # was the real bug, confirmed live on melchior 2026-09-16).
-                # Use the tool's own real result text instead — always valid.
-                if len(final_text.strip()) < 5:
-                    logger.warning(
-                        "Degenerate short post-tool response %r detected; "
-                        "using tool result text instead of restarting", final_text,
-                    )
-                    final_text = _tool_result_fallback_text()
-                elif tool_parsing.parse_function_call(final_text) is not None:
-                    logger.warning(
-                        "Post-tool generation re-emitted a tool_call instead of "
-                        "a summary (%r); using tool result text instead", final_text,
-                    )
-                    final_text = _tool_result_fallback_text()
+            # Root-cause fix (2026-09-17): do NOT run a second generation call
+            # to "prettify" the tool result into natural language. Every tool
+            # this project has (math/weather/directions) already returns a
+            # well-formed, natural-language-ready result string, and this
+            # second _generate() call is the sole source of an entire
+            # recurring bug class on this small 1.5B on-device model across
+            # multiple prior sessions: degenerating to a single stray '<'
+            # character (2026-09-16), re-hallucinating a brand-new unexecuted
+            # <tool_call>{...}</tool_call> block that leaked to the user raw
+            # (2026-09-16), and — the shape that prompted this fix — emitting
+            # a hallucinated, wrong, irrelevant tool-schema blob wrapped in
+            # <code>...</code> tags for a *successful* math call (2026-09-17,
+            # reproduced 3/3 live on melchior: tool_result correctly
+            # '12 + 15 = 27', but response was a garbage weather-schema dump).
+            # That last shape didn't match parse_function_call()'s expected
+            # <tool_call>{...}</tool_call> shape, so it slipped through the
+            # prior degenerate/re-hallucination detectors undetected — yet
+            # another narrow patch would only have covered this one new shape.
+            # Skipping the second generation call entirely removes the whole
+            # bug class at its root instead: it also cuts a full ~10-45s
+            # generation call from every tool-using request, and removes the
+            # "Context usage >=80%"/degenerate-response log noise for the
+            # tool-use path entirely. Kept unconditional (success AND
+            # failure) rather than only on success, since the tool's own
+            # result/error text (via _tool_result_fallback_text(), which
+            # already special-cases the weather "ask for location" case into
+            # a natural clarifying question) is always valid and this was
+            # already the existing fallback for every failure mode above.
+            final_text = _tool_result_fallback_text()
 
         else:
             # No tool was used at all (plain Q&A/code-gen path). The small
