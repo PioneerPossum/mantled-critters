@@ -29,10 +29,13 @@
     --critical:       #e66767;
   }
   * { box-sizing: border-box; }
+  html { overflow-x: hidden; }
   body {
-    margin: 0; background: var(--page); color: var(--text-primary);
+    margin: 0 auto; background: var(--page); color: var(--text-primary);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     padding: 20px 24px 60px;
+    max-width: 1800px;
+    overflow-x: hidden;
   }
   h1 { font-size: 20px; margin: 0 0 4px; font-weight: 600; }
   .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
@@ -43,8 +46,9 @@
     padding: 14px 16px;
   }
   .grid { display: grid; gap: 12px; }
-  .grid-nodes { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
-  .grid-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .grid-nodes { grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); }
+  .grid-tiles { grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); }
+  .grid-failover { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
   .grid-2col { grid-template-columns: 1.1fr 1fr; align-items: start; }
   @media (max-width: 900px) { .grid-2col { grid-template-columns: 1fr; } }
 
@@ -75,6 +79,7 @@
   .tile-value { font-size: 26px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .tile-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   th { text-align: left; color: var(--text-muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--gridline); font-size: 11px; text-transform: uppercase; }
   td { padding: 6px 8px; border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
@@ -101,11 +106,11 @@
   .empty { color: var(--text-muted); font-size: 12px; padding: 10px 0; }
   a.plain { color: var(--series-1); text-decoration: none; }
 
-  .chat-row { display: flex; gap: 8px; }
+  .chat-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .chat-input {
-    flex: 1; background: var(--page); border: 1px solid var(--border); color: var(--text-primary);
+    flex: 1 1 220px; min-width: 0; background: var(--page); border: 1px solid var(--border); color: var(--text-primary);
     padding: 8px 10px; border-radius: 6px; font-size: 13px; font-family: inherit; resize: vertical;
-    min-height: 38px;
+    min-height: 38px; max-width: 100%;
   }
   .chat-input:focus { outline: none; border-color: var(--series-1); }
   .chat-submit {
@@ -115,21 +120,127 @@
   .chat-submit:hover { opacity: 0.9; }
   .chat-submit:disabled { opacity: 0.5; cursor: default; }
   .chat-meta { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
-  .chat-response {
-    margin-top: 12px; padding: 12px; background: var(--page); border: 1px solid var(--border);
-    border-radius: 8px; font-size: 13px; white-space: pre-wrap; word-break: break-word;
-    max-height: 420px; overflow-y: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    line-height: 1.5;
+
+  /* "Read responses aloud" toggle -- a plain checkbox, not a custom switch,
+     kept visually consistent with the rest of the form row (same font-size
+     as chat-meta, accent-color tied to the existing --series-1 blue so its
+     checked state matches every other accent use in this dashboard). */
+  .tts-toggle {
+    display: flex; align-items: center; gap: 6px; font-size: 12.5px;
+    color: var(--text-secondary); cursor: pointer; user-select: none; white-space: nowrap;
   }
-  .chat-response.empty-state { color: var(--text-muted); font-family: inherit; }
-  .chat-response.thinking { color: var(--text-secondary); font-family: inherit; }
-  .chat-response.error { color: var(--critical); font-family: inherit; }
+  .tts-toggle input[type="checkbox"] {
+    accent-color: var(--series-1); width: 15px; height: 15px; cursor: pointer; margin: 0;
+  }
+
+  /* Scrollable chat thread -- replaces the old single-response box. Each
+     turn is its own bubble, oldest at top, newest at bottom, auto-scrolled.
+     Taller than the old 420px single-response box since it now holds a
+     whole conversation, but still bounded so the page itself doesn't grow
+     unbounded as history accumulates. */
+  .chat-thread {
+    margin-top: 12px; padding: 12px; background: var(--page); border: 1px solid var(--border);
+    border-radius: 8px; max-height: 480px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .chat-thread.empty-state {
+    display: block; color: var(--text-muted); font-size: 13px;
+  }
+  .chat-msg {
+    max-width: 88%; padding: 8px 12px; border-radius: 10px; font-size: 13px;
+    white-space: pre-wrap; word-break: break-word; line-height: 1.5;
+  }
+  .chat-msg-role {
+    display: block; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+    opacity: 0.7; margin-bottom: 4px;
+  }
+  .chat-msg-meta { font-size: 10.5px; color: var(--text-muted); margin-top: 6px; opacity: 0.9; }
+  .chat-msg.user {
+    align-self: flex-end; background: var(--series-1); color: #fff; border-bottom-right-radius: 2px;
+  }
+  .chat-msg.user .chat-msg-role { color: rgba(255,255,255,0.85); }
+  .chat-msg.assistant {
+    align-self: flex-start; background: var(--surface-1); color: var(--text-primary);
+    border: 1px solid var(--border); border-bottom-left-radius: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .chat-msg.thinking {
+    align-self: flex-start; background: var(--surface-1); color: var(--text-secondary);
+    border: 1px solid var(--border); border-bottom-left-radius: 2px; font-family: inherit;
+  }
+  .chat-msg.error {
+    align-self: flex-start; background: var(--surface-1); color: var(--critical);
+    border: 1px solid var(--critical); border-bottom-left-radius: 2px; font-family: inherit;
+  }
+  /* "Open in Maps" deep-links under a `directions` tool response -- plain
+     button-styled links using the same surface/border/accent tokens as the
+     rest of the chat thread's buttons, not a new color. */
+  .maps-links { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .maps-link-btn {
+    display: inline-block; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 11.5px; font-weight: 600; text-decoration: none; color: var(--text-primary);
+    background: var(--page); border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px;
+  }
+  .maps-link-btn:hover { border-color: var(--series-1); color: var(--series-1); }
+
   .spin {
     display:inline-block; width:10px; height:10px; border-radius:50%;
     border: 2px solid var(--gridline); border-top-color: var(--series-1);
     animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: -1px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- Wide / ultrawide (>=1900px): let tiles use the extra room instead
+     of stretching a few cards edge-to-edge with huge empty gaps. The body
+     max-width above already stops the page from going fully edge-to-edge. */
+  @media (min-width: 1900px) {
+    .grid-tiles { grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); }
+    .grid { gap: 16px; }
+  }
+
+  /* ---- Narrow / phone (<=600px): stack controls, guarantee 44px+ touch
+     targets, keep tables scrolling within their own box instead of the
+     whole page, and stop long unbreakable text/placeholders from forcing
+     horizontal scroll. */
+  @media (max-width: 600px) {
+    body { padding: 14px 12px 48px; }
+    h1 { font-size: 18px; }
+    h2 { font-size: 12.5px; margin: 22px 0 8px; }
+
+    .chat-row { flex-direction: column; align-items: stretch; }
+    .chat-input { flex-basis: auto; }
+    .chat-submit {
+      width: 100%; min-height: 44px; padding: 0 14px; font-size: 14px;
+    }
+    a.chat-submit { display: flex; align-items: center; justify-content: center; }
+
+    .chat-thread { max-height: 360px; padding: 10px; }
+    .chat-msg { max-width: 94%; }
+
+    .btn-row { flex-wrap: wrap; }
+    .btn-row button {
+      flex: 1 1 auto; min-height: 44px; min-width: 72px; font-size: 13px; padding: 8px 10px;
+    }
+
+    .node-name { font-size: 14px; }
+    .tile-value { font-size: 22px; }
+
+    .barchart-row { flex-wrap: wrap; row-gap: 4px; }
+    .barchart-label { width: 100%; text-align: left; }
+    .barchart-value { text-align: right; }
+
+    table { min-width: 440px; } /* let .table-scroll's own overflow-x handle it */
+
+    .camera-wrap { max-width: 100% !important; }
+  }
+
+  /* Belt-and-suspenders: on any viewport, nothing should be able to force
+     the page itself to scroll horizontally. */
+  @media (max-width: 900px) {
+    .grid-2col .card { min-width: 0; }
+  }
 </style>
 </head>
 <body>
@@ -140,7 +251,7 @@
   <div class="grid grid-nodes" id="nodes"></div>
 
   <h2>Failover — melchior &amp; balthazar heartbeat</h2>
-  <div class="grid grid-nodes" id="failover" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));"></div>
+  <div class="grid grid-nodes grid-failover" id="failover"></div>
   <div class="node-stat" style="margin:8px 0 0;">Liveness-only (missed heartbeat), not tamper/intrusion detection. Staleness threshold and manual-override behavior: see magi-failover.md.</div>
 
   <h2 id="llm-heading">Local LLM — offload to balthazar (Hailo-10H)</h2>
@@ -149,9 +260,12 @@
       <textarea id="chat-input" class="chat-input" placeholder="Ask a question or request some code — runs locally on balthazar's Hailo-10H, no cloud model involved..." rows="2"></textarea>
       <button id="chat-submit" class="chat-submit" onclick="submitChat()">Send</button>
       <button id="chat-newconv" class="chat-submit" style="background:var(--gridline);" onclick="newConversation()" title="Clear this session's conversation history">New conversation</button>
+      <label class="tts-toggle" title="Speak assistant replies aloud using local Piper TTS (runs on this dashboard box's CPU, not on melchior/balthazar)">
+        <input type="checkbox" id="tts-toggle" onchange="onTtsToggleChange()"> 🔊 Read responses aloud
+      </label>
     </div>
-    <div id="chat-response" class="chat-response empty-state">Response will appear here.</div>
-    <div id="chat-meta" class="chat-meta">Normal duty: balthazar's Hailo-10H (falls back to melchior automatically if balthazar is down and melchior has taken over via failover). Requests are serialized — one LLM session at a time per chip. General questions: a few seconds. Code generation: up to ~45-60s. Model: Qwen2.5-Coder-1.5B-Instruct. Math and weather questions can invoke real tools (weather always asks for a location rather than guessing one). Conversation history is remembered within a session — use "New conversation" to reset.</div>
+    <div id="chat-thread" class="chat-thread empty-state">Loading conversation…</div>
+    <div id="chat-meta" class="chat-meta">Normal duty: balthazar's Hailo-10H (falls back to melchior automatically if balthazar is down and melchior has taken over via failover). Requests are serialized — one LLM session at a time per chip. General questions: a few seconds. Code generation: up to ~45-60s. Model: Qwen2.5-Coder-1.5B-Instruct. Math and weather questions can invoke real tools (weather always asks for a location rather than guessing one). Conversation history is remembered within a session and shown as a scrollable thread below — use "New conversation" to reset. "Read responses aloud" uses a local Piper TTS voice running on this dashboard machine's CPU (code blocks are omitted from audio, noted as "code omitted").</div>
   </div>
 
   <h2>Third-party LLM tooling — Open WebUI on balthazar (on-demand)</h2>
@@ -163,6 +277,26 @@
       <a href="http://192.168.8.133:3000" target="_blank" rel="noopener" class="chat-submit" style="display:inline-block; text-decoration:none; padding:10px 18px;">Open Open WebUI →</a>
     </div>
     <div id="openwebui-status" class="chat-meta">Toggle state unknown — click Start/Stop, or check the Failover panel above (balthazar's "language" role reflects whether magi-llm-api or hailo-ollama currently holds the chip).</div>
+  </div>
+
+  <h2>Live Navigation (opt-in GPS)</h2>
+  <div class="card">
+    <div class="node-stat" style="margin-bottom:10px;">
+      Uses your <strong>browser's</strong> live location (<code>navigator.geolocation</code>) to route to a destination via this cluster's self-hosted OSRM (repositorium) and re-route as you move. Nothing starts until you click "Start navigation" — the browser will then prompt for location permission. No live traffic data (OSRM has none) — ETAs are road-network/speed-limit based only. Position is used live for routing only; nothing about it is logged or persisted server-side, and tracking stops the moment you click Stop or leave this page.
+    </div>
+    <div class="chat-row">
+      <input id="nav-dest" class="chat-input" style="flex:1 1 260px;" placeholder="Destination address or place name..." type="text" autocomplete="off">
+      <button id="nav-start" class="chat-submit" onclick="startNavigation()">Start navigation</button>
+      <button id="nav-stop" class="chat-submit" style="background:var(--gridline);" onclick="stopNavigation()" disabled>Stop navigation</button>
+    </div>
+    <div id="nav-status" class="chat-meta" style="margin-top:10px;">Not navigating.</div>
+    <div id="nav-display" class="card" style="display:none; margin-top:10px; background:var(--page);">
+      <div class="tile-label">Distance remaining</div>
+      <div class="tile-value" id="nav-distance">—</div>
+      <div class="tile-sub" id="nav-eta">—</div>
+      <div class="node-stat" style="margin-top:10px;">Next: <b id="nav-instruction">—</b></div>
+      <div class="node-stat" id="nav-updated" style="margin-top:6px; color:var(--text-muted);">—</div>
+    </div>
   </div>
 
   <h2>Camera — D555 live preview</h2>
@@ -181,10 +315,12 @@
     </div>
     <div class="card">
       <div class="tile-label" style="margin-bottom:10px;">Most recent detections</div>
-      <table>
-        <thead><tr><th>Device</th><th>Class</th><th>Confidence</th><th>Time</th></tr></thead>
-        <tbody id="recent-body"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Device</th><th>Class</th><th>Confidence</th><th>Time</th></tr></thead>
+          <tbody id="recent-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -359,6 +495,34 @@ async function loadTopology() {
   el.innerHTML = html;
 }
 
+let chatSeq = 0;
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+// "Open in Maps" links for the `directions` tool -- tool_result carries
+// apple_maps_url/google_maps_url straight through from repositorium's
+// tools_api.py (see run_directions()'s _build_maps_deep_links(), added
+// 2026-09-17), reusing the same Nominatim-geocoded coordinates already used
+// for OSRM routing rather than re-geocoding client-side. Only rendered for
+// a successful `directions` tool call that actually returned both URLs;
+// href values are plain lat,lon query strings (no user-controlled text),
+// so no escaping is needed there, only in the visible label text.
+function mapsLinksHtml(toolUsed, toolResult) {
+  if (toolUsed !== "directions" || !toolResult || !toolResult.ok) return "";
+  const { apple_maps_url, google_maps_url } = toolResult;
+  if (!apple_maps_url && !google_maps_url) return "";
+  let html = `<div class="maps-links">`;
+  if (apple_maps_url) {
+    html += `<a class="maps-link-btn" href="${apple_maps_url}" target="_blank" rel="noopener">📍 Open in Apple Maps</a>`;
+  }
+  if (google_maps_url) {
+    html += `<a class="maps-link-btn" href="${google_maps_url}" target="_blank" rel="noopener">📍 Open in Google Maps</a>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
 function getSessionId() {
   let id = localStorage.getItem("magi_llm_session_id");
   if (!id) {
@@ -368,34 +532,147 @@ function getSessionId() {
   return id;
 }
 
+// "Read responses aloud" toggle -- persisted in localStorage same as the
+// session_id above, so it survives a page reload. Off by default (no
+// autoplay surprise on first visit).
+function getTtsEnabled() {
+  return localStorage.getItem("magi_tts_enabled") === "1";
+}
+function initTtsToggle() {
+  $("#tts-toggle").checked = getTtsEnabled();
+}
+function onTtsToggleChange() {
+  localStorage.setItem("magi_tts_enabled", $("#tts-toggle").checked ? "1" : "0");
+}
+
+// Calls the dashboard's /api/tts proxy (-> magi-tts.service on this same
+// box, Piper TTS, CPU-only -- see app.py's TTS_API comment) with plain
+// response text already rendered in the thread, and plays the returned WAV
+// via the browser's own Audio() API. This is a second, independent step
+// after the chat response already landed -- it never blocks or delays the
+// chat UI itself, and a TTS failure (network hiccup, service down) is
+// swallowed with a console warning rather than surfacing as a chat error,
+// since the text answer already rendered successfully either way.
+async function speakText(text) {
+  if (!text || !text.trim()) return;
+  try {
+    const r = await fetch("/api/tts", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text}),
+    });
+    if (!r.ok) {
+      console.warn("TTS request failed:", r.status);
+      return;
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.addEventListener("ended", () => URL.revokeObjectURL(url));
+    audio.addEventListener("error", () => URL.revokeObjectURL(url));
+    await audio.play().catch(e => console.warn("Audio playback failed (autoplay policy?):", e));
+  } catch (e) {
+    console.warn("TTS failed:", e);
+  }
+}
+
+function scrollThreadToBottom() {
+  const thread = $("#chat-thread");
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function setThreadEmpty(text) {
+  const thread = $("#chat-thread");
+  thread.innerHTML = "";
+  thread.classList.add("empty-state");
+  thread.textContent = text;
+}
+
+// Appends one bubble to the thread and returns its element so the caller
+// can mutate it later (used for the thinking -> final-response transition,
+// so a long-running reply updates in place rather than the thread being
+// cleared/redrawn).
+function appendMessage(role, bodyHtml, opts = {}) {
+  const thread = $("#chat-thread");
+  if (thread.classList.contains("empty-state")) {
+    thread.classList.remove("empty-state");
+    thread.innerHTML = "";
+  }
+  const div = document.createElement("div");
+  div.className = `chat-msg ${role}`;
+  const roleLabel = {user: "You", assistant: "Assistant", thinking: "Assistant", error: "Error"}[role] || role;
+  div.innerHTML = `<span class="chat-msg-role">${roleLabel}</span>${bodyHtml}`;
+  thread.appendChild(div);
+  if (!opts.skipScroll) scrollThreadToBottom();
+  return div;
+}
+
+async function loadChatHistory() {
+  setThreadEmpty("Loading conversation…");
+  try {
+    const r = await fetch(`/api/llm/history/${getSessionId()}?limit=50`);
+    const data = await r.json();
+    const turns = data.turns || [];
+    if (!turns.length) {
+      setThreadEmpty("No messages yet — say something to start a conversation.");
+      return;
+    }
+    $("#chat-thread").innerHTML = "";
+    $("#chat-thread").classList.remove("empty-state");
+    for (const t of turns) {
+      const role = t.role === "user" ? "user" : "assistant";
+      appendMessage(role, escapeHtml(t.content || ""), {skipScroll: true});
+    }
+    scrollThreadToBottom();
+  } catch (e) {
+    setThreadEmpty("Could not load conversation history (offline?) — new messages will still send.");
+  }
+}
+
 async function newConversation() {
-  const out = $("#chat-response");
-  const meta = $("#chat-meta");
   const oldId = localStorage.getItem("magi_llm_session_id");
   try {
     if (oldId) await fetch(`/api/llm/session/${oldId}`, {method: "DELETE"});
   } catch (e) { /* best-effort; a fresh session id below still isolates history either way */ }
   localStorage.removeItem("magi_llm_session_id");
   getSessionId();
-  out.className = "chat-response empty-state";
-  out.textContent = "Response will appear here.";
-  meta.textContent = "New conversation started — previous context cleared.";
+  setThreadEmpty("New conversation started — say something to begin.");
 }
 
 async function submitChat() {
   const input = $("#chat-input");
   const btn = $("#chat-submit");
-  const out = $("#chat-response");
-  const meta = $("#chat-meta");
   const prompt = input.value.trim();
   if (!prompt) return;
 
   btn.disabled = true;
   input.disabled = true;
-  out.className = "chat-response thinking";
-  out.innerHTML = `<span class="spin"></span>Thinking... (running on balthazar's Hailo-10H normally, this can take up to a minute for code requests)`;
 
+  // Optimistic UI: show the user's message immediately, don't wait on the
+  // network round-trip to prove what was just sent.
+  appendMessage("user", escapeHtml(prompt));
+  input.value = "";
+
+  // The "thinking" bubble is its own thread entry, not a placeholder that
+  // replaces prior messages -- it gets updated in place once the real
+  // response (or an error) arrives, so the thread only ever grows.
+  const thinkingDiv = appendMessage(
+    "thinking",
+    `<span class="spin"></span><span class="think-text">Thinking... (running on balthazar's Hailo-10H normally, this can take up to a minute for code requests)</span>`
+  );
+
+  // fetch() has no default timeout, so this genuinely waits as long as the
+  // server does (up to app.py's 90s upstream proxy timeout) rather than
+  // silently aborting on a slow/flaky connection -- no AbortController here
+  // by design. The live "Ns elapsed" ticker below exists so a long wait
+  // still reads as "in progress," not "stalled," while that happens.
   const t0 = performance.now();
+  const thinkText = thinkingDiv.querySelector(".think-text");
+  const tickTimer = setInterval(() => {
+    const secs = Math.floor((performance.now() - t0) / 1000);
+    thinkText.textContent = `Still working... (${secs}s elapsed — code requests can take up to ~60s)`;
+  }, 1000);
+
   try {
     const r = await fetch("/api/llm/chat", {
       method: "POST",
@@ -404,26 +681,36 @@ async function submitChat() {
     });
     const data = await r.json();
     const servedBy = data.served_by || "balthazar";
+    clearInterval(tickTimer);
+
     if (r.status === 429) {
-      out.className = "chat-response error";
-      out.textContent = `${servedBy} is busy processing another request (only one LLM session can run at a time). Try again in a moment.`;
+      thinkingDiv.className = "chat-msg error";
+      thinkingDiv.innerHTML = `<span class="chat-msg-role">Error</span>${escapeHtml(`${servedBy} is busy processing another request (only one LLM session can run at a time). Try again in a moment.`)}`;
     } else if (!r.ok || data.error) {
-      out.className = "chat-response error";
-      out.textContent = `Error: ${data.error || r.status}${data.detail ? " — " + data.detail : ""}`;
+      thinkingDiv.className = "chat-msg error";
+      thinkingDiv.innerHTML = `<span class="chat-msg-role">Error</span>${escapeHtml(`Error: ${data.error || r.status}${data.detail ? " — " + data.detail : ""}`)}`;
     } else {
-      out.className = "chat-response";
-      out.textContent = data.response || "(empty response)";
+      thinkingDiv.className = "chat-msg assistant";
+      const nowStr = new Date().toLocaleTimeString([], {hour12:false});
+      const elapsed = data.elapsed_s ?? ((performance.now() - t0) / 1000).toFixed(1);
       const toolNote = data.tool_used ? ` · tool used: ${data.tool_used}` : "";
       const failoverNote = data.failover ? " · FAILOVER (balthazar down, melchior covering)" : "";
-      meta.textContent = `Answered in ${data.elapsed_s ?? ((performance.now()-t0)/1000).toFixed(1)}s · served by ${servedBy} (Hailo-10H) · Qwen2.5-Coder-1.5B-Instruct · requests are serialized${toolNote}${failoverNote}`;
+      thinkingDiv.innerHTML =
+        `<span class="chat-msg-role">Assistant</span>${escapeHtml(data.response || "(empty response)")}` +
+        mapsLinksHtml(data.tool_used, data.tool_result) +
+        `<div class="chat-msg-meta">${nowStr} · answered in ${elapsed}s · served by ${servedBy} (Hailo-10H)${toolNote}${failoverNote}</div>`;
       $("#llm-heading").textContent = `Local LLM — offload to ${servedBy} (Hailo-10H)${data.failover ? " — FAILOVER ACTIVE" : ""}`;
+      chatSeq += 1;
+      if (getTtsEnabled() && data.response) speakText(data.response);
     }
   } catch (e) {
-    out.className = "chat-response error";
-    out.textContent = `Request failed: ${e}`;
+    clearInterval(tickTimer);
+    thinkingDiv.className = "chat-msg error";
+    thinkingDiv.innerHTML = `<span class="chat-msg-role">Error</span>${escapeHtml(`Request failed: ${e}`)}`;
   } finally {
     btn.disabled = false;
     input.disabled = false;
+    scrollThreadToBottom();
   }
 }
 
@@ -445,6 +732,133 @@ async function openWebuiControl(action) {
   }
 }
 
+// ---- Live Navigation (opt-in GPS) ----
+// Uses navigator.geolocation.watchPosition -- explicit user permission,
+// started ONLY by clicking "Start navigation" (never automatic) -- plus
+// repositorium's self-hosted OSRM (via /api/nav/route) to compute/re-compute
+// a route as the browser's position updates. Deliberately NOT wired into the
+// LLM tool-calling system above: this is its own dedicated UI feature on a
+// timer, not something the model orchestrates turn-by-turn. No live traffic
+// data (OSRM has none, see magi-osrm-routing.md) -- a future traffic-aware
+// provider would plug in behind compute_route() on repositorium's
+// tools_api.py, not here; this panel just renders whatever /api/nav/route
+// returns. Nothing about position is persisted anywhere -- state lives only
+// in these JS variables for the duration of the active navigation session,
+// and is dropped on Stop or page unload.
+const NAV_POLL_INTERVAL_MS = 20000;  // routine re-route ceiling -- don't hammer OSRM
+const NAV_MOVE_THRESHOLD_M = 60;     // also re-route sooner on a meaningful position jump
+let navWatchId = null;
+let navTimer = null;
+let navDestLat = null, navDestLon = null, navDestLabel = null;
+let navLastRoutedPos = null;      // {lat, lon} last sent to /api/nav/route
+let navLastPos = null;            // {lat, lon} most recent geolocation reading
+let navLastRoutedCallAt = null;
+
+function haversineM(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function setNavStatus(text, isError = false) {
+  const el = $("#nav-status");
+  el.textContent = text;
+  el.style.color = isError ? "var(--critical)" : "var(--text-muted)";
+}
+
+async function navRequestRoute(lat, lon) {
+  const body = { lat, lon };
+  if (navDestLat != null) {
+    body.dest_lat = navDestLat;
+    body.dest_lon = navDestLon;
+  } else {
+    body.destination = $("#nav-dest").value.trim();
+  }
+  navLastRoutedPos = { lat, lon };
+  try {
+    const r = await fetch("/api/nav/route", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!data.ok) {
+      setNavStatus(`Routing error: ${data.error || "unknown error"}`, true);
+      return;
+    }
+    if (data.dest_lat != null && navDestLat == null) {
+      navDestLat = data.dest_lat;
+      navDestLon = data.dest_lon;
+      navDestLabel = data.dest_label || $("#nav-dest").value.trim();
+    }
+    $("#nav-display").style.display = "block";
+    $("#nav-distance").textContent = `${data.distance_mi} mi`;
+    $("#nav-eta").textContent = `~${data.duration_str} remaining (no live traffic data)`;
+    $("#nav-instruction").textContent = data.next_instruction || "Continue to destination";
+    $("#nav-updated").textContent = `Updated ${new Date().toLocaleTimeString([], { hour12: false })} · to ${navDestLabel || "destination"}`;
+    setNavStatus(`Navigating to ${navDestLabel || "destination"} — tracking live.`);
+  } catch (e) {
+    setNavStatus(`Routing request failed: ${e}`, true);
+  }
+}
+
+function navMaybeRoute() {
+  if (!navLastPos) return;
+  const now = Date.now();
+  const dueByTime = !navLastRoutedCallAt || (now - navLastRoutedCallAt) >= NAV_POLL_INTERVAL_MS;
+  const movedFar = navLastRoutedPos &&
+    haversineM(navLastPos.lat, navLastPos.lon, navLastRoutedPos.lat, navLastRoutedPos.lon) >= NAV_MOVE_THRESHOLD_M;
+  if (dueByTime || movedFar) {
+    navLastRoutedCallAt = now;
+    navRequestRoute(navLastPos.lat, navLastPos.lon);
+  }
+}
+
+function startNavigation() {
+  const dest = $("#nav-dest").value.trim();
+  if (!dest) { setNavStatus("Enter a destination first.", true); return; }
+  if (!("geolocation" in navigator)) { setNavStatus("Geolocation is not available in this browser.", true); return; }
+
+  navDestLat = null; navDestLon = null; navDestLabel = null;
+  navLastRoutedPos = null; navLastRoutedCallAt = null; navLastPos = null;
+
+  $("#nav-start").disabled = true;
+  $("#nav-stop").disabled = false;
+  $("#nav-dest").disabled = true;
+  setNavStatus("Requesting location permission...");
+
+  navWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      navLastPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      navMaybeRoute();
+    },
+    (err) => setNavStatus(`Location error: ${err.message} (code ${err.code})`, true),
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+
+  navTimer = setInterval(navMaybeRoute, NAV_POLL_INTERVAL_MS);
+}
+
+function stopNavigation() {
+  if (navWatchId != null) { navigator.geolocation.clearWatch(navWatchId); navWatchId = null; }
+  if (navTimer != null) { clearInterval(navTimer); navTimer = null; }
+  navLastPos = null; navLastRoutedPos = null;
+  navDestLat = null; navDestLon = null; navDestLabel = null; navLastRoutedCallAt = null;
+  $("#nav-start").disabled = false;
+  $("#nav-stop").disabled = true;
+  $("#nav-dest").disabled = false;
+  $("#nav-display").style.display = "none";
+  setNavStatus("Not navigating.");
+}
+
+// Best-effort cleanup if the tab/page is closed or navigated away from
+// while navigation is active -- browsers generally stop geolocation
+// watches on unload anyway, but this makes sure the interval timer and any
+// in-flight state are dropped too, per the "stops cleanly" requirement.
+window.addEventListener("beforeunload", () => {
+  if (navWatchId != null) stopNavigation();
+});
+
 $("#chat-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitChat();
 });
@@ -456,6 +870,8 @@ function tick() {
 }
 tick();
 loadTopology();
+loadChatHistory();
+initTtsToggle();
 setInterval(refreshNodes, 5000);
 setInterval(refreshData, 3000);
 setInterval(refreshFailover, 5000);

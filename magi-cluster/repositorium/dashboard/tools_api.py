@@ -587,6 +587,24 @@ def _format_duration(minutes: float) -> str:
     return f"{int(round(minutes))} min"
 
 
+def _build_maps_deep_links(geo_origin: dict[str, Any], geo_dest: dict[str, Any]) -> dict[str, str]:
+    """'Open in Maps' links (added 2026-09-17, see magi-osrm-routing.md) —
+    reuses the same Nominatim-geocoded lat/lon this tool already computed
+    for OSRM routing, rather than re-geocoding on the client. Both are
+    public URL schemes, no API key/account needed:
+      - Apple Maps: https://maps.apple.com/?saddr=...&daddr=...
+      - Google Maps: https://www.google.com/maps/dir/?api=1&origin=...&destination=...
+    lat,lon strings need no URL-encoding (digits, '.', '-', ',' are all
+    safe in a query string), so this is plain string formatting.
+    """
+    o = f"{geo_origin['lat']},{geo_origin['lon']}"
+    d = f"{geo_dest['lat']},{geo_dest['lon']}"
+    return {
+        "apple_maps_url": f"https://maps.apple.com/?saddr={o}&daddr={d}",
+        "google_maps_url": f"https://www.google.com/maps/dir/?api=1&origin={o}&destination={d}",
+    }
+
+
 def run_directions(input_data: dict[str, Any]) -> dict[str, Any]:
     validated = _validate_directions_input(input_data)
     if not validated.get("ok"):
@@ -656,7 +674,176 @@ def run_directions(input_data: dict[str, Any]) -> dict[str, Any]:
         suffix = "..." if len(turns) > 3 else "."
         result_parts.append("Key turns: " + "; ".join(shown) + suffix)
 
-    return {"ok": True, "result": " ".join(result_parts)}
+    maps_links = _build_maps_deep_links(geo_origin, geo_dest)
+    return {"ok": True, "result": " ".join(result_parts), **maps_links}
+
+
+# ============================================================================
+# Live navigation routing (added 2026-09-17) — NOT part of the LLM
+# tool-calling system above. This is the backend for the dashboard's
+# separate "Live Navigation" UI panel (static/index.html), which polls
+# POST /nav/route periodically with the browser's live geolocation position
+# (opt-in, started only by the user clicking "Start navigation") plus a
+# destination, and re-renders ETA/distance/next-turn text as the position
+# updates. Stateless: this box does not store position history anywhere
+# (no Postgres, no Redis, no on-disk log) — each request is computed fresh
+# from whatever lat/lon the client just sent, which is also how re-routing
+# works: the client always asks "route from where I am RIGHT NOW to the
+# destination," so a driver who deviates from the previous route simply gets
+# a new one on the next poll, no separate polyline-distance-threshold logic
+# needed server-side (the client does a lightweight local check of its own
+# just to label an update as a meaningful reroute in the UI, but that never
+# gates whether this endpoint gets called with fresh data).
+# ============================================================================
+
+def compute_route(lat: float, lon: float, dest_lat: float, dest_lon: float, timeout: int = 10) -> dict[str, Any]:
+    """Single seam for turn-by-turn route + ETA computation, used by both
+    /nav/route below. **TRAFFIC-DATA EXTENSION POINT**: this function
+    currently always calls this box's self-hosted OSRM instance (same one
+    the `directions` LLM tool uses), which has NO live traffic data —
+    routing is static road-network + speed-limit based only, per
+    magi-osrm-routing.md. Real traffic-aware routing is a deliberately
+    deferred future step: Gil will set up a commercial routing API account
+    himself later, and no speculative provider integration/API shape is
+    guessed at here since no such account/credentials exist yet. When that
+    happens, the intended seam is: swap this function's body (or branch on
+    a provider config flag/env var) to call that provider instead, keeping
+    the same return shape ({"ok", "distance_mi", "distance_km",
+    "duration_min", "duration_str", "eta_utc", "next_instruction",
+    "geometry", "provider"}). Every caller — the /nav/route endpoint below,
+    and the dashboard frontend's Live Navigation panel — only depends on
+    that return shape, not on OSRM specifically, so a provider swap should
+    not require touching the endpoint or the frontend at all.
+    """
+    try:
+        coords = f"{lon},{lat};{dest_lon},{dest_lat}"
+        r = requests.get(
+            f"{OSRM_URL}/route/v1/driving/{coords}",
+            params={"overview": "full", "geometries": "geojson", "steps": "true"},
+            timeout=timeout,
+        )
+        r.raise_for_status()
+        route_data = r.json()
+    except requests.exceptions.RequestException as e:
+        return {"ok": False, "error": f"Routing service error: {e}"}
+
+    if route_data.get("code") != "Ok" or not route_data.get("routes"):
+        return {
+            "ok": False,
+            "error": (
+                "No driving route found from the current position to the destination — "
+                "outside OSRM's Illinois-only coverage, or too far from any road to snap to."
+            ),
+        }
+
+    route = route_data["routes"][0]
+    distance_km = route["distance"] / 1000.0
+    distance_mi = distance_km * 0.621371
+    duration_min = route["duration"] / 60.0
+
+    steps = [s for leg in route.get("legs", []) for s in leg.get("steps", [])]
+    next_instruction = None
+    for step in steps:
+        maneuver = step.get("maneuver", {})
+        instr_type = maneuver.get("type", "")
+        if instr_type == "depart":
+            continue
+        if instr_type == "arrive":
+            next_instruction = "Arrive at destination"
+            break
+        modifier = maneuver.get("modifier", "")
+        road_name = step.get("name", "")
+        desc = instr_type + (f" {modifier}" if modifier else "")
+        if road_name:
+            desc += f" onto {road_name}"
+        next_instruction = desc
+        break
+
+    # Decimate the geometry before shipping it to the client -- OSRM can
+    # return hundreds of vertices for a long route, but the client only
+    # needs enough points for a rough "am I still near this route" check,
+    # not a pixel-perfect polyline (no map widget renders this, per the
+    # task's v1 text-based-updates scope).
+    raw_geometry = route.get("geometry", {}).get("coordinates", [])  # [[lon,lat], ...]
+    if len(raw_geometry) > 100:
+        step_n = max(1, len(raw_geometry) // 100)
+        raw_geometry = raw_geometry[::step_n]
+    geometry_latlon = [[pt[1], pt[0]] for pt in raw_geometry]
+
+    eta_utc = (datetime.utcnow() + timedelta(minutes=duration_min)).isoformat() + "Z"
+
+    return {
+        "ok": True,
+        "provider": "osrm",  # see the extension-point docstring above
+        "distance_mi": round(distance_mi, 2),
+        "distance_km": round(distance_km, 2),
+        "duration_min": round(duration_min, 1),
+        "duration_str": _format_duration(duration_min),
+        "eta_utc": eta_utc,
+        "next_instruction": next_instruction,
+        "geometry": geometry_latlon,
+    }
+
+
+def _validate_nav_route_input(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        lat = float(payload.get("lat"))
+        lon = float(payload.get("lon"))
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "'lat' and 'lon' are required and must be numeric."}
+
+    dest_lat, dest_lon = payload.get("dest_lat"), payload.get("dest_lon")
+    if dest_lat is not None and dest_lon is not None:
+        try:
+            return {"ok": True, "data": {
+                "lat": lat, "lon": lon,
+                "dest_lat": float(dest_lat), "dest_lon": float(dest_lon),
+                "destination_text": None,
+            }}
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "'dest_lat'/'dest_lon' must be numeric."}
+
+    destination = str(payload.get("destination", "")).strip()
+    if not destination or _is_placeholder_location(destination):
+        return {
+            "ok": False,
+            "error": "'destination' (text) or 'dest_lat'/'dest_lon' (numeric) is required.",
+        }
+    return {"ok": True, "data": {
+        "lat": lat, "lon": lon, "dest_lat": None, "dest_lon": None,
+        "destination_text": destination,
+    }}
+
+
+def run_nav_route(input_data: dict[str, Any]) -> dict[str, Any]:
+    validated = _validate_nav_route_input(input_data)
+    if not validated.get("ok"):
+        return validated
+    data = validated["data"]
+
+    dest_lat, dest_lon, dest_label = data["dest_lat"], data["dest_lon"], None
+    if dest_lat is None:
+        # First call for a given navigation session (client has no cached
+        # dest_lat/dest_lon yet) -- geocode once via the same rate-limited
+        # Nominatim helper the `directions` tool uses, then the client
+        # caches dest_lat/dest_lon itself and sends those directly on every
+        # subsequent poll so we never re-geocode the same destination on a
+        # timer (Nominatim's usage policy is 1 req/sec, shared process-wide).
+        try:
+            geo = _geocode(data["destination_text"])
+        except requests.exceptions.RequestException as e:
+            return {"ok": False, "error": f"Geocoding service error: {e}"}
+        if not geo.get("ok"):
+            return {"ok": False, "error": geo.get("error")}
+        dest_lat, dest_lon, dest_label = geo["lat"], geo["lon"], geo.get("display_name")
+
+    result = compute_route(data["lat"], data["lon"], dest_lat, dest_lon)
+    if result.get("ok"):
+        result["dest_lat"] = dest_lat
+        result["dest_lon"] = dest_lon
+        if dest_label:
+            result["dest_label"] = dest_label
+    return result
 
 
 # ============================================================================
@@ -665,7 +852,7 @@ def run_directions(input_data: dict[str, Any]) -> dict[str, Any]:
 
 @app.get("/health")
 def health():
-    return jsonify(ok=True, ts=time.time(), tools=["math", "weather", "directions"])
+    return jsonify(ok=True, ts=time.time(), tools=["math", "weather", "directions"], nav=True)
 
 
 @app.post("/tools/math")
@@ -692,6 +879,23 @@ def tools_directions():
     logger.info("directions tool call: args=%s", body)
     result = run_directions(body)
     logger.info("directions tool result: %s", result)
+    return jsonify(result)
+
+
+@app.post("/nav/route")
+def nav_route():
+    """Live-navigation routing for the dashboard's Live Navigation panel --
+    NOT part of the LLM tool-calling system (see the section header comment
+    above run_nav_route()). Logged at debug level, not info: this endpoint
+    is polled every ~15-30s while a user has navigation active, and unlike
+    the one-shot LLM tools, logging every lat/lon at info level would build
+    up a de-facto location history in the systemd journal, which the task's
+    privacy requirement (nothing about live position logged/persisted
+    beyond the current request) argues against even as an incidental side
+    effect."""
+    body = request.get_json(silent=True) or {}
+    logger.debug("nav route call: args=%s", body)
+    result = run_nav_route(body)
     return jsonify(result)
 
 

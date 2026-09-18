@@ -45,6 +45,36 @@ LLM_API_BY_DEVICE = {
 }
 LLM_DEFAULT_DEVICE = "balthazar"
 LLM_CHAT_TIMEOUT_S = 90
+# Conversation history lives on repositorium, not on melchior/balthazar --
+# magi-conversation-api (~/magi/dashboard/conversation_api.py, port 8803)
+# owns the Postgres llm_conversations table directly (same box as
+# data_api.py, same credential file). melchior/balthazar's magi_llm_api.py
+# calls it internally when generating a reply; this dashboard proxy is a
+# separate read path so the frontend can render the stored thread on page
+# load without going through either LLM node.
+CONVERSATION_API = "http://192.168.8.184:8803"
+CONVERSATION_HISTORY_TIMEOUT_S = 10
+# TTS ("read responses aloud" toggle) -- magi-tts.service, a small standalone
+# Piper TTS synthesis service running on THIS box (audire-videre), not on
+# melchior/balthazar. Piper is pure Python + ONNX, CPU-only, no Hailo NPU
+# involvement at all (verified by reading hailo-apps' own
+# gen_ai_utils/voice_processing/text_to_speech.py -- it never imports
+# hailo_platform), so there's no reason to put it on the Hailo nodes and
+# every reason not to (avoids any risk to magi-live-detect/magi-llm-api
+# there). Deliberately decoupled from /api/llm/chat above: the frontend
+# calls this as a second, independent step once it already has response
+# text in hand, so this never touches magi_llm_api.py on either Pi.
+TTS_API = "http://127.0.0.1:8804"
+TTS_TIMEOUT_S = 20
+# Live Navigation panel (added 2026-09-17) -- proxies to repositorium's
+# magi-tools-api /nav/route (same process/port as the directions LLM tool,
+# see tools_api.py's compute_route()), NOT to the LLM chat path. This is a
+# dedicated opt-in-GPS UI feature, polled directly by the frontend on a
+# timer -- the model never orchestrates it. Stateless passthrough: no
+# position data is stored on this box or forwarded anywhere except the
+# single repositorium request/response per poll.
+TOOLS_API = "http://192.168.8.184:8804"
+NAV_ROUTE_TIMEOUT_S = 10
 
 SSH_TIMEOUT = 6
 
@@ -342,6 +372,27 @@ def api_llm_chat():
             ), 502
 
 
+@app.get("/api/llm/history/<session_id>")
+def api_llm_history(session_id):
+    """Proxy to repositorium's magi-conversation-api for loading a session's
+    stored chat thread on page load / reload, so the dashboard can render a
+    real scrollable conversation instead of only ever showing the latest
+    response. Read-only passthrough; response shape from upstream is
+    {"session_id": ..., "turns": [{"role", "content", "created_at"}, ...]}
+    oldest-first."""
+    limit = request.args.get("limit", 50, type=int)
+    limit = max(1, min(limit, 200))
+    try:
+        r = requests.get(
+            f"{CONVERSATION_API}/conversations/{session_id}",
+            params={"limit": limit},
+            timeout=CONVERSATION_HISTORY_TIMEOUT_S,
+        )
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify(error=str(e), session_id=session_id, turns=[]), 502
+
+
 @app.delete("/api/llm/session/<session_id>")
 def api_llm_clear_session(session_id):
     """Proxy for the dashboard's 'New conversation' button — clears a
@@ -355,6 +406,47 @@ def api_llm_clear_session(session_id):
         except Exception as e:
             last_err = e
     return jsonify(error=str(last_err)), 502
+
+
+@app.post("/api/tts")
+def api_tts():
+    """Proxy to magi-tts.service (Piper, running locally on audire-videre --
+    see TTS_API comment above). Takes the same {"text": ...} the frontend
+    already has in hand from a rendered chat response and returns the raw
+    audio/wav bytes straight through for the browser's <audio> element."""
+    body = request.get_json(silent=True) or {}
+    text = (body.get("text") or "").strip()
+    if not text:
+        return jsonify(error="missing 'text'"), 400
+    try:
+        r = requests.post(f"{TTS_API}/tts", json={"text": text}, timeout=TTS_TIMEOUT_S)
+        if r.status_code != 200:
+            return jsonify(error="tts service error", detail=r.text[:1000]), r.status_code
+        return Response(r.content, content_type="audio/wav")
+    except requests.exceptions.Timeout:
+        return jsonify(error="timeout", detail=f"tts did not respond within {TTS_TIMEOUT_S}s"), 504
+    except Exception as e:
+        return jsonify(error=str(e)), 502
+
+
+@app.post("/api/nav/route")
+def api_nav_route():
+    """Proxy to repositorium's magi-tools-api /nav/route for the dashboard's
+    Live Navigation panel (opt-in browser GPS -> self-hosted OSRM routing,
+    periodically re-polled as position updates -- see static/index.html's
+    startNavigation()/navMaybeRoute()). Deliberately separate from
+    /api/llm/chat above: this is never routed through the LLM tool-calling
+    system, just a plain stateless HTTP passthrough of whatever lat/lon the
+    browser just read from navigator.geolocation. Nothing is logged or
+    persisted here beyond this single request/response."""
+    body = request.get_json(silent=True) or {}
+    try:
+        r = requests.post(f"{TOOLS_API}/nav/route", json=body, timeout=NAV_ROUTE_TIMEOUT_S)
+        return jsonify(r.json()), r.status_code
+    except requests.exceptions.Timeout:
+        return jsonify(ok=False, error="timeout", detail=f"routing did not respond within {NAV_ROUTE_TIMEOUT_S}s"), 504
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 502
 
 
 @app.get("/api/camera/mjpeg")
