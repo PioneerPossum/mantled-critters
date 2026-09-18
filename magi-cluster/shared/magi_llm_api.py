@@ -20,13 +20,39 @@ one-shot Q&A/code-gen path:
 
 1. **Tool calling.** Reuses agent_tools_example's own machinery verbatim:
    `system_prompt.create_system_prompt()` to embed tool schemas as text in
-   the system prompt, `tool_parsing.parse_function_call()` to pull a
-   `<tool_call>{...}</tool_call>` JSON block out of the raw generation, and
-   `tool_execution.execute_tool_call()` to dispatch to the real Python tool
-   function. Only the **math** and **weather** tools are wired in (both
+   the system prompt (schema/name/description text still comes straight from
+   the vendored `tools/{math,weather}` modules — unchanged, so what's
+   described to the model hasn't moved), `tool_parsing.parse_function_call()`
+   to pull a `<tool_call>{...}</tool_call>` JSON block out of the raw
+   generation, and `tool_execution.execute_tool_call()` to dispatch the call.
+
+   v3 (2026-09-17): tool *execution* itself no longer runs locally. Each
+   tool's "runner" is now a thin HTTP call to a new central tool-execution
+   API on repositorium (`magi-tools-api.service`, port 8804,
+   ~/magi/dashboard/tools_api.py) rather than the vendored tools' own local
+   `run()` functions. This closes the same drift risk the 2026-09-16 dedup
+   session found and fixed for magi_detect.py/magi_heartbeat.py/etc: melchior
+   and balthazar each have their own separate ~/hailo-apps checkout, and the
+   weather tool specifically has already needed two in-place hotfixes there
+   (Session 10's location-hallucination fix, Session 11's include_rain
+   silent-omission fix) that live outside this repo and would be silently
+   lost on a future reinstall/`git pull` on either node — see
+   magi-local-llm-feasibility.md. repositorium's tools_api.py is now the
+   single source of truth for tool *logic*; both nodes' copies of the
+   vendored tools/{math,weather,directions} modules are only still imported
+   here for their `name`/`TOOLS_SCHEMA`/`description` metadata (what gets
+   shown to the model), never for their `run()` functions anymore. Only the
+   **math**, **weather**, and **directions** tools are wired in (all
    pure-Python / network-only — no GPIO). The hardware tools
    (rgb_led/servo/elevator) are deliberately never imported here, so there's
    no path to real hardware from this service.
+
+   **directions** (added 2026-09-17, see magi-osrm-routing.md): geocodes via
+   Nominatim then routes via a self-hosted OSRM instance also running on
+   repositorium (osrm-backend.service, port 5000) — the /tools/directions
+   endpoint on repositorium's tools_api calls that OSRM instance over
+   localhost/LAN itself, so this node only ever talks to the one tools_api
+   HTTP endpoint, same as math/weather.
 
 2. **Conversation history.** Sessions are opaque IDs the dashboard generates
    client-side. History is stored in repositorium's Postgres via a small
@@ -92,6 +118,17 @@ CONV_API_TIMEOUT_S = 5
 MAX_HISTORY_MESSAGES = 20  # ~10 turns of user+assistant
 MAX_HISTORY_CHARS = 6000   # crude char budget (~1500 tokens) for replayed history
 
+# --- Tool execution (repositorium's magi-tools-api, v3 2026-09-17) ---
+# Central, single-source-of-truth tool logic — see the module docstring.
+# A tool call here is one extra LAN hop (node -> repositorium -> Open-Meteo
+# for weather), so the timeout is generous but still well under the overall
+# request's own no-queueing/no-retry philosophy: a slow/unreachable
+# tools_api just surfaces as a normal tool "error" result fed back to the
+# model, exactly the same as any other tool failure this code already
+# handled before tool execution moved off-node.
+TOOLS_API = "http://192.168.8.184:8804"
+TOOLS_API_TIMEOUT_S = 15
+
 _lock = threading.Lock()
 _state = {
     "llm": None,
@@ -100,6 +137,31 @@ _state = {
     "tools_lookup": None,
     "system_prompt_text": None,
 }
+
+
+def _remote_tool_runner(tool_name: str):
+    """Return a `runner(args) -> dict` closure matching the exact interface
+    `tool_execution.execute_tool_call()` expects from a local tool's own
+    `run()` function (dict with 'ok' plus 'result' or 'error') — except this
+    one makes an HTTP call to repositorium's central magi-tools-api instead
+    of running the logic in this process. Kept as small closures rather than
+    reimplementing execute_tool_call() so the surrounding tool-calling flow
+    (parse -> dispatch -> feed result back) is completely unchanged; only
+    what a runner actually *does* when called has moved off-node.
+    """
+
+    def _runner(args: dict) -> dict:
+        try:
+            r = requests.post(
+                f"{TOOLS_API}/tools/{tool_name}", json=args, timeout=TOOLS_API_TIMEOUT_S,
+            )
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            logger.warning("Remote tool '%s' call to %s failed: %s", tool_name, TOOLS_API, e)
+            return {"ok": False, "error": f"Tool service unavailable ({tool_name}): {e}"}
+
+    return _runner
 
 
 def _ensure_initialized() -> None:
@@ -129,15 +191,23 @@ def _ensure_initialized() -> None:
 
     # Build the tool-calling system prompt using agent_tools_example's own
     # generator, with only math + weather registered (no GPIO tools loaded).
+    # NOTE (v3, 2026-09-17): these vendored modules are imported for their
+    # name/TOOLS_SCHEMA/description metadata ONLY (what gets shown to the
+    # model — unchanged) — their own run() functions are never called here
+    # anymore. See _remote_tool_runner() below: actual execution is now a
+    # thin HTTP call to repositorium's central magi-tools-api.
     from hailo_apps.python.gen_ai_apps.agent_tools_example import system_prompt as at_system_prompt
     from hailo_apps.python.gen_ai_apps.agent_tools_example.tools import math as math_tool
     from hailo_apps.python.gen_ai_apps.agent_tools_example.tools import weather as weather_tool
+    from hailo_apps.python.gen_ai_apps.agent_tools_example.tools import directions as directions_tool
 
     tools = [
         {"name": math_tool.name, "tool_def": math_tool.TOOLS_SCHEMA[0],
-         "description": math_tool.description, "runner": math_tool.run},
+         "description": math_tool.description, "runner": _remote_tool_runner("math")},
         {"name": weather_tool.name, "tool_def": weather_tool.TOOLS_SCHEMA[0],
-         "description": weather_tool.description, "runner": weather_tool.run},
+         "description": weather_tool.description, "runner": _remote_tool_runner("weather")},
+        {"name": directions_tool.name, "tool_def": directions_tool.TOOLS_SCHEMA[0],
+         "description": directions_tool.description, "runner": _remote_tool_runner("directions")},
     ]
     tool_prompt_text = at_system_prompt.create_system_prompt(tools)
     _state["tools_lookup"] = {t["name"]: t for t in tools}

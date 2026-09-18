@@ -8,6 +8,25 @@ copies differing only by hardcoded device-identity constants).
 - `magi_detect.py` — Hailo YOLO detection publisher (`magi-live-detect.service`).
 - `magi_llm_api.py` — local-LLM chat/tool-calling HTTP API (`magi-llm-api.service`).
   No per-node config needed at all — it has no device-specific behavior.
+  **2026-09-17: tool execution moved off-node.** `math`/`weather` (and, as of
+  the same day, `directions` — see below) tool *execution* now happens via a
+  thin HTTP call (`_remote_tool_runner()`) to a new central tool-execution
+  API on repositorium (`magi-tools-api.service`, port 8804,
+  `repositorium/dashboard/tools_api.py` in this repo) instead of running each
+  vendored tool's own local `run()` function in-process. Reason: melchior and
+  balthazar each have their own separate `~/hailo-apps` checkout, and the
+  weather tool specifically had already needed two in-place hotfixes there
+  (the location-hallucination fix and the `include_rain` fix documented
+  below) that lived outside this repo and would be silently lost on a future
+  `git pull`/reinstall of either node's `hailo-apps` checkout — the same
+  drift risk this repo's `shared/` directory itself exists to close for
+  `magi_detect.py`/etc. Tool *schemas* (name/description/parameters shown to
+  the model in the system prompt) are unchanged and still sourced from the
+  vendored `tools/{math,weather,directions}` modules on each node — only
+  what a tool call actually *does* moved to repositorium. `TOOLS_API =
+  "http://192.168.8.184:8804"` is hardcoded the same way `CONV_API` already
+  was (no per-node config needed, repositorium's address doesn't vary by
+  which node is calling it).
 - `magi_heartbeat.py` — failover liveness beacon (`magi-heartbeat.service`).
 - `magi_failover.py` — failover watchdog + manual `ctl start|stop <role>` override
   (`magi-failover.service`).
@@ -29,7 +48,31 @@ copies differing only by hardcoded device-identity constants).
   "Forecast for ... on <date>" so two different-timeframe answers read back
   to back can't be misread as one contradictory "now" statement. Verified via
   real `/chat` calls on both nodes and via the dashboard's `/api/llm/chat`
-  (see [[magi-local-llm-feasibility]]).
+  (see [[magi-local-llm-feasibility]]). **This logic's live execution copy
+  has since moved to `repositorium/dashboard/tools_api.py`** (2026-09-17,
+  same session as the tool-execution-centralization change above) — this
+  `weather_tool/` directory is now a second-order reference copy (the
+  vendored `~/hailo-apps/.../tools/weather/{tool,api}.py` on each node is
+  still the source for the tool's *schema*; `tools_api.py` is the source for
+  its *execution*; this directory exists so the logic isn't only trackable
+  in one non-obvious place). Verified after the move: two differently-worded
+  weather queries for the same location still return identical precipitation
+  data both ways, through both nodes' `/chat` and through the dashboard.
+
+  **A third tool, `directions` (OSRM-based routing), was added to
+  `magi_llm_api.py`/`tools_api.py` by a separate, concurrent session on
+  2026-09-17** — see `magi-osrm-routing.md` for that work's own detail; not
+  authored or verified by the tool-execution-centralization session, noted
+  here only because it now lives in the same shared files. One real
+  regression was observed as a side effect: with all three tools' schemas in
+  the system prompt, the small on-device model became noticeably more prone
+  to misidentifying plain math questions as `weather` tool calls (reproduced
+  3/3 times across both nodes, different phrasings) — this didn't happen
+  with only math+weather registered. Not fixed by this session (out of
+  scope — the regression is in tool-selection prompting, triggered by
+  someone else's concurrent, unrelated change, not by the execution-backend
+  migration itself), but flagged here for whoever picks up `directions` or
+  revisits tool-selection reliability next.
 
 ## Per-node identity/config
 

@@ -22,8 +22,14 @@ Each top-level directory here is one physical/logical node:
   only started by the failover watchdog when melchior goes down (see `magi-failover.md`).
 - **`repositorium/`** — the x86 storage/memory backend (Postgres + pgvector, Redis). Runs
   `magi_worker.py` (persists the detection stream into Postgres) and, under `dashboard/`, the
-  two small read-only/read-write HTTP APIs the dashboard depends on for data
-  (`data_api.py`) and LLM conversation history (`conversation_api.py`).
+  small read-only/read-write HTTP APIs the dashboard/LLM stack depends on: data
+  (`data_api.py`), LLM conversation history (`conversation_api.py`), and (2026-09-17)
+  `tools_api.py` — the central execution backend for the local LLM agent's tools (math,
+  weather, and, as of the same day via a separate concurrent change, directions), port 8804,
+  `magi-tools-api.service`. Both melchior and balthazar's `magi_llm_api.py` call this over
+  HTTP instead of running tool logic locally, closing a drift risk the two nodes' separately
+  vendored `~/hailo-apps` checkouts had already hit twice (see `shared/README.md` and
+  [[magi-local-llm-feasibility]]).
 - **`dashboard/`** — the operator-facing pieces hosted on **audire-videre** (the x86 host this
   repo lives on): the Flask dashboard app (`app.py` + `static/index.html`) that ties the whole
   cluster's status/controls together, and the D555 camera bridge (`magi_stream_d555.py` +
