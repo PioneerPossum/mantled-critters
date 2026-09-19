@@ -777,10 +777,53 @@ def _overpass_escape(text: str) -> str:
     return text.strip()
 
 
+OVERPASS_MAX_ATTEMPTS = 2  # one retry on a transient timeout/overload, not an unbounded loop
+OVERPASS_RETRY_BACKOFF_S = 2
+
+
+def _overpass_search_once(ql: str) -> dict[str, Any]:
+    """Single Overpass HTTP round-trip. Returns {"ok": True, "elements": [...]},
+    or {"ok": False, "error": ..., "transient": bool} -- "transient" marks
+    failures worth retrying (timeout / overload) vs. ones that won't improve
+    on retry (malformed query, non-timeout remark, etc.)."""
+    try:
+        r = requests.post(
+            OVERPASS_URL,
+            data={"data": ql},
+            headers={"User-Agent": OVERPASS_USER_AGENT},
+            timeout=OVERPASS_HTTP_TIMEOUT_S,
+        )
+    except requests.exceptions.Timeout:
+        return {"ok": False, "transient": True, "error": "Place search timed out (Overpass API is a shared public service and can be slow) — try again in a moment."}
+    except requests.exceptions.RequestException as e:
+        return {"ok": False, "transient": True, "error": f"Place search service error: {e}"}
+
+    if r.status_code == 504 or "too busy" in r.text.lower():
+        return {"ok": False, "transient": True, "error": "Place search service is currently overloaded (public Overpass API) — try again in a moment."}
+    try:
+        r.raise_for_status()
+        data = r.json()
+    except (requests.exceptions.RequestException, ValueError) as e:
+        return {"ok": False, "transient": True, "error": f"Place search service returned an unexpected response: {e}"}
+
+    if data.get("remark"):
+        # Overpass reports its own errors (e.g. query timeout) inside a 200
+        # response body via "remark" rather than a non-2xx status -- this is
+        # the exact case observed failing intermittently in real use, so it
+        # counts as transient/retryable too.
+        return {"ok": False, "transient": True, "error": f"Place search service error: {data['remark']}"}
+
+    return {"ok": True, "elements": data.get("elements", [])}
+
+
 def _overpass_search(query: str, lat: float, lon: float, radius_m: int) -> dict[str, Any]:
-    """One Overpass API call: nodes within radius_m of (lat, lon) whose name
-    OR brand tag matches `query` (case-insensitive substring). Returns
-    {"ok": True, "elements": [...]} or {"ok": False, "error": ...}."""
+    """Nodes within radius_m of (lat, lon) whose name OR brand tag matches
+    `query` (case-insensitive substring), via the public Overpass API.
+    Retries once on a transient failure (timeout/overload) before giving up
+    -- the public instance intermittently times out under its own load even
+    for perfectly normal queries (observed in real use), and a single retry
+    resolves most of these without meaningfully hurting latency on the
+    common (first-try-succeeds) case."""
     escaped = _overpass_escape(query)
     if not escaped:
         return {"ok": False, "error": "empty search query after sanitizing"}
@@ -791,32 +834,17 @@ def _overpass_search(query: str, lat: float, lon: float, radius_m: int) -> dict[
         f'node(around:{radius_m},{lat},{lon})["brand"~"{escaped}",i];);'
         f'out center {FIND_NEARBY_MAX_RESULTS};'
     )
-    try:
-        r = requests.post(
-            OVERPASS_URL,
-            data={"data": ql},
-            headers={"User-Agent": OVERPASS_USER_AGENT},
-            timeout=OVERPASS_HTTP_TIMEOUT_S,
-        )
-    except requests.exceptions.Timeout:
-        return {"ok": False, "error": "Place search timed out (Overpass API is a shared public service and can be slow) — try again in a moment."}
-    except requests.exceptions.RequestException as e:
-        return {"ok": False, "error": f"Place search service error: {e}"}
 
-    if r.status_code == 504 or "too busy" in r.text.lower():
-        return {"ok": False, "error": "Place search service is currently overloaded (public Overpass API) — try again in a moment."}
-    try:
-        r.raise_for_status()
-        data = r.json()
-    except (requests.exceptions.RequestException, ValueError) as e:
-        return {"ok": False, "error": f"Place search service returned an unexpected response: {e}"}
+    result = None
+    for attempt in range(1, OVERPASS_MAX_ATTEMPTS + 1):
+        result = _overpass_search_once(ql)
+        if result.get("ok") or not result.get("transient") or attempt == OVERPASS_MAX_ATTEMPTS:
+            break
+        time.sleep(OVERPASS_RETRY_BACKOFF_S)
 
-    if data.get("remark"):
-        # Overpass reports its own errors (e.g. query timeout) inside a 200
-        # response body via "remark" rather than a non-2xx status.
-        return {"ok": False, "error": f"Place search service error: {data['remark']}"}
-
-    return {"ok": True, "elements": data.get("elements", [])}
+    if not result.get("ok"):
+        return {"ok": False, "error": result.get("error", "Place search failed.")}
+    return result
 
 
 def _validate_find_nearby_input(payload: dict[str, Any]) -> dict[str, Any]:
