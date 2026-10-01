@@ -84,6 +84,7 @@ supply. This service therefore:
 import io
 import json
 import logging
+import re
 import threading
 import time
 from contextlib import redirect_stdout
@@ -111,6 +112,39 @@ BASE_SYSTEM_PROMPT = (
     "or invent a value and do not call the tool — ask the user directly instead, "
     "then wait for their answer."
 )
+
+# --- Off-topic tool-call guard (2026-09-29) ---
+# The 1.5B model sees every tool schema on every request and over-triggers
+# them: "what is the capital of Illinois?" -> weather(location="Illinois")
+# (passes _location_mentioned_by_user, since the user did say Illinois) ->
+# a weather report; "what time is it?" -> weather(no location) -> "which
+# city?". If the user's own words don't plausibly ask for the tool the model
+# picked (or the tool doesn't exist), the call is discarded and the answer
+# regenerated ONCE with no tool schema in context. Keep these patterns in
+# sync with TOOL_RE in ~/magi_router/magi_router.py (audire-videre), which
+# applies the same test router-side to decide routing and escalation.
+TOOL_INTENT_RE = {
+    "math": re.compile(r"\d\s*[-+*/x×÷^%]\s*\d|\b(calculate|compute|sqrt|square root|percent(age)?|"
+                       r"times|divided|multiplied|plus|minus|sum of|product of)\b", re.I),
+    "weather": re.compile(r"\b(weather|forecast|temperature|rain(ing|y)?|snow(ing|y)?|wind(y)?|humid(ity)?|"
+                          r"sunny|cloudy|storm(s|y)?|umbrella|degrees (out|outside))\b", re.I),
+    "directions": re.compile(r"\b(directions?|route|drive (to|from)|driving|navigate|how (do|can) i get|"
+                             r"how far|way to)\b", re.I),
+    "find_nearby": re.compile(r"\b(nearest|nearby|near me|closest|around here)\b", re.I),
+}
+NO_TOOLS_NOTE = (
+    "No tools are available for this message. Answer directly from your own "
+    "knowledge in plain text; never emit a tool call. If the question needs "
+    "live information you don't have (like the current time), say so briefly."
+)
+
+
+def _tool_call_off_topic(name, prompt_text: str, tools_lookup: dict) -> bool:
+    if not name or name not in (tools_lookup or {}):
+        return True
+    pattern = TOOL_INTENT_RE.get(name)
+    return pattern is not None and not pattern.search(prompt_text or "")
+
 
 # --- Conversation history (repositorium's magi-conversation-api) ---
 CONV_API = "http://192.168.8.184:8803"
@@ -470,7 +504,26 @@ def chat():
         tool_result = None
         final_text = raw_response
 
+        tool_rejected = None
         tool_call = tool_parsing.parse_function_call(raw_response)
+        if tool_call is not None and _tool_call_off_topic(tool_call.get("name"), prompt_text, tools_lookup):
+            tool_rejected = tool_call.get("name")
+            logger.warning("Discarding off-topic/unknown tool call %r for prompt %r -- regenerating once without tools",
+                           tool_rejected, prompt_text[:80])
+            try:
+                llm.clear_context()
+                plain_messages = [message_formatter.messages_system(BASE_SYSTEM_PROMPT + " " + NO_TOOLS_NOTE)]
+                plain_messages += context_messages[1:]  # same replayed history, minus the tool-schema system prompt
+                context_manager.add_to_context(llm, plain_messages, logger)
+                raw_response = _generate([message_formatter.messages_user(prompt_text)])
+            except Exception as e:
+                logger.warning("No-tools regeneration failed: %s", e)
+                raw_response = ""
+            # Still tool-calling with no tools offered: give up and return
+            # empty, which callers (magi-router) treat as a failed attempt.
+            final_text = "" if tool_parsing.parse_function_call(raw_response) is not None else raw_response
+            tool_call = None
+
         if tool_call is not None:
             tool_used = tool_call.get("name")
             tool_args = tool_call.get("arguments") or {}
@@ -555,7 +608,7 @@ def chat():
             # original prompt ONLY here, because there's no tool-aware
             # framing that could cause the retry to hallucinate a tool call
             # (that failure mode is handled separately above).
-            if len(final_text.strip()) < 5:
+            if len(final_text.strip()) < 5 and not tool_rejected:
                 logger.warning("Degenerate short response %r detected, retrying once with fresh context + different seed", final_text)
                 try:
                     llm.clear_context()
@@ -581,6 +634,7 @@ def chat():
             elapsed_s=round(elapsed, 2),
             tool_used=tool_used,
             tool_result=tool_result,
+            tool_rejected=tool_rejected,
         )
     finally:
         _state["request_geo"] = None  # never let a request's location outlive its own request
