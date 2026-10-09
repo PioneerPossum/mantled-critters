@@ -1,3 +1,4 @@
+- [lessons-learned](lessons-learned.md) — READ FIRST: recap of real mistakes + rules by theme (stale IPs, host identity, boot ordering, Hailo, permissions, credentials, process); append-only
 - [magi-cluster-status](magi-cluster-status.md) — current state of melchior/balthazar/repositorium/edgerunner, the Netgear switch, and the D555 camera
 - [gs308epp-switch-api](gs308epp-switch-api.md) — how to script the Netgear GS308EPP switch (login, CSRF hash, packed-JS unpacking, write endpoints)
 - [feedback-network-automation-caution](feedback-network-automation-caution.md) — lessons from real network-automation mistakes (secondary-IP conflicts, host mixups, session-lockout pacing)
@@ -10,4 +11,26 @@
 - [magi-custom-model-goal](magi-custom-model-goal.md) — Gil's future "someday" goal to train/compile custom Hailo models via the Dataflow Compiler, not just use model-zoo weights
 - [hailo-frigate-standalone-ref](hailo-frigate-standalone-ref.md) — 3rd-party project proving Vision+GenAI can share one Hailo-10H concurrently (Frigate NVR + VLM chat)
 - [magi-github-sync](magi-github-sync.md) — syncing magi-cluster work to public mantled-critters repo; deploy-key auth done, credential-hygiene rules, repo-split question open
-- [magi-maps-tool-goal](magi-maps-tool-goal.md) — Gil's future "someday" goal: a directions/GPS tool for the LLM agent, leaning OSRM self-hosted over Google/Apple Maps
+- [magi-maps-tool-goal](magi-maps-tool-goal.md) — directions/GPS tool for the LLM agent; BUILT 2026-09-17 as self-hosted OSRM, see [[magi-osrm-routing]]
+- [magi-backups](magi-backups.md) — automated daily DR backups of melchior/balthazar to repositorium's NVMe via systemd-timer-triggered rsync push, 14-snapshot hardlinked retention, verified end-to-end
+- [dexcom-epaper-project-ref](dexcom-epaper-project-ref.md) — Gil's Dexcom CGM e-paper project (Pi+Pico) at his partner's house; confirmed no overlap with repositorium, out of scope for now
+- [magi-repositorium-ndi-wip](magi-repositorium-ndi-wip.md) — repositorium's leftover Dicaffeine NDI/VJ dserver is an intentionally-parked WIP, not cruft to remove
+- [magi-skywarn-goal](magi-skywarn-goal.md) — future goal: pull NWS mesoscale discussions/watches/warnings into the weather tool for subscribed-user severe-weather alerts
+- [magi-osrm-routing](magi-osrm-routing.md) — self-hosted OSRM (Illinois car routing) on repositorium, wired into the LLM tool-calling system as a `directions` tool alongside math/weather; built and verified end-to-end with a real Chicago-area route query
+- [magi-remote-worker-plan](magi-remote-worker-plan.md) — planned (not built): laptops as Tailscale-tagged LLM workers + local-first router with online fallback + NERV/MAGI-themed dashboard revamp (Claude Design considered)
+- [d555-network-reconfig-status](d555-network-reconfig-status.md) — D555 PoE reconfig: PoE + multicast relay confirmed working via a bridge through edgerunner, blocked on DDS unicast-peer JSON schema for full NAT traversal
+- [unifi-network-status](unifi-network-status.md) — UniFi OS Server installed on audire-videre (Docker stack removed), edgerunner pending 64-bit reinstall; 2026-09-28: Colorado site-to-site VPN planned (GL-3600 <-> UDM Pro Max), not built
+- [magi-ups-power-down](magi-ups-power-down.md) — magi nodes powered off 2026-09-20 for UPS move; what stayed up, power-on order, D555 streamer stopped
+- [audire-videre-boot-lvm](audire-videre-boot-lvm.md) — initramfs-drop root cause (VG spans 2 LUKS PVs); FIXED + confirmed by real reboot 2026-09-20 via local-block script; initramfs ordering lessons
+- [audire-videre-monitor](audire-videre-monitor.md) — standing monitor role for audire-videre: change-only watchdog script, how to re-arm under Monitor (30-min expiry), autonomy rules Gil set
+- [magi-wake-on-lan](magi-wake-on-lan.md) — WoL enabled at OS level on all nodes but REAL TEST FAILED: halted Pi 5 (USB NIC) does not wake by magic packet; RTC alarm/switched power alternatives; KVM/tailnet roles and MACs
+- [session-execution-model](session-execution-model.md) — this session is persistent and on-device (audire-videre itself, not an ephemeral cloud container); what that does/doesn't imply for durability
+- [magi-net-8x-migration-status](magi-net-8x-migration-status.md) — 192.168.8.x net: verified addresses (switch .101, edgerunner .139, Legion .147); 2026-10-03/04 Legion UDP-cap root cause = Lenovo FBNetFilter (disabled); WAN ~440 Mbit/s ceiling open; net-blip-logger
+- [magi-design-references](magi-design-references.md) — Gil's 9 Evangelion MAGI/NERV reference screenshots (sets 1+2), derived design decisions, and Claude Design URL, nerv.* translation status
+- [magi-router](magi-router.md) — local-first OpenAI-compatible LLM router on audire-videre :8810 (npu→gpu workers→Claude API fallback), built 2026-09-27; cloud off until an API key is added
+- [magi-av-mixer-idea](magi-av-mixer-idea.md) — TD/AV unit: NDI capacity on Pi 5, VBAN music path, magi-audio (FLAC+BPM+OSC tempo) on repositorium, magi-ndi-recorder on audire-videre; 2026-10-04 handoff + next steps (NVENC, live web page)
+- [feedback-memory-incremental](feedback-memory-incremental.md) — memory is append-only (dated updates/corrections, never overwrite or condense); keep [[lessons-learned]] recap current
+- [claude-code-context-bar-mod](claude-code-context-bar-mod.md) — Claude Code mod "context-bar" (2026-10-02): /context-colored usage bar above the prompt, /context-bar toggle; plugin-validator `$` gotcha
+- [claude-code-usage-glance-mod](claude-code-usage-glance-mod.md) — Claude Code mod 'usage-glance' (2026-10-04): condensed context/limits/cost/agent roster; band (terminal+desktop) + /glance pane (phone too); validated, live render unconfirmed
+- [magi-nvenc-recorder](magi-nvenc-recorder.md) — recorder on hevc_nvenc via private ffmpeg7.1/PyAV15.1 build (driver 550 too old for API 13); rollback drop-in, ~2 GB/h at cq32
+- [magi-end-product-autonomous-vj](magi-end-product-autonomous-vj.md) — Gil's END PRODUCT (2026-10-05): self-training mood/video processor driving Resolume autonomously from any music source, human OSC + interaction-table handoff; not built

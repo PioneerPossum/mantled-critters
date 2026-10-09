@@ -1,10 +1,11 @@
 ---
 name: magi-failover
 description: "melchior <-> balthazar heartbeat/failover subsystem for the magi-cluster -- liveness-only (not intrusion detection), how it's built, how to check status, manual override, and live-test evidence"
-metadata:
+metadata: 
   node_type: memory
   type: reference
-  modified: 2026-09-16T00:00:00.000Z
+  modified: 2026-09-16T21:26:43.971Z
+  originSessionId: f6269a19-bce7-578b-b30c-0c70fe46905a
 ---
 
 Built 2026-09-16 so melchior and balthazar cover for each other if one goes down/unresponsive, per Gil's request. **Liveness-only** (missed heartbeat) -- explicitly NOT tamper/intrusion detection, that was ruled out of scope up front.
@@ -74,3 +75,35 @@ First attempt at the outage simulation (below) silently failed: melchior's `magi
 2. **Watchdog in-memory state doesn't persist across its own restarts.** If `magi-failover.service` itself restarts while a failover role is active (e.g. after a crash or `daemon-reload`), the new process no longer remembers it was the one that started that role, so it won't auto-stop it on peer recovery -- would need a manual `ctl stop` in that edge case. Not fixed this session (small blast radius, systemd `Restart=on-failure` on the watchdog itself is rare in practice).
 3. Dashboard's `running: true` can lag reality by up to the heartbeat TTL (60s) after a role cleanly stops, since the key isn't explicitly deleted, only left to expire -- self-corrects, but a `stop` won't show as `stopped` on the dashboard instantly. Matches (reuses) the same staleness vocabulary the watchdog itself uses, so it's consistent, just not instant.
 4. Heartbeat/failover intervals (15s / 25s poll / 90s stale / 60s TTL) are deliberately conservative per the standing power-caution note (no new PSU confirmed installed) -- not sub-second, no aggressive retries.
+
+## Dedup refactor (2026-09-16, follow-up session)
+
+`magi_heartbeat.py` and `magi_failover.py` (along with `magi_detect.py` and `magi_llm_api.py`, covered in [[magi-local-llm-feasibility]] Session 9) are no longer separate per-node copies -- they're now the exact same script file deployed to both nodes, living at `magi-cluster/shared/` in the repo (was `~/magi/melchior/*.py` / `~/magi/balthazar/*.py` copies before). Per-node identity now comes entirely from `~/.config/magi/publish.env` (the same env file `magi_publish.py` already used for Redis credentials) via new keys:
+
+- `DEVICE`, `PEER` -- e.g. `DEVICE=melchior`/`PEER=balthazar` on melchior, reversed on balthazar.
+- `OWN_DUTY_ROLES` -- comma-separated roles this node always runs as normal duty (`vision,language` on melchior, empty on balthazar) -- drives the `own_duty` flag per role that used to be hardcoded in `ROLES` in each node's own copy of `magi_failover.py`.
+- `COUPLED_SERVICE` -- the service that must be stopped/restarted around failover roles (empty on melchior, `hailo-ollama` on balthazar) -- used to be a hardcoded `COUPLED_SERVICE = None`/`"hailo-ollama"` line.
+
+`magi_detect.py`'s per-node diff turned out to be more than cosmetic: melchior's copy had a real fix (a DISPLAY-headless `fakesink` GStreamer monkeypatch) that balthazar's copy never got. Folded into the shared version so balthazar now has it too.
+
+**Verified after deploying to both nodes** (melchior first, confirmed healthy, then balthazar): heartbeat logs show the correct `device=` on each node; failover logs show the correct `peer=`/`coupled=` on each; a manual `ctl start/stop vision` and `ctl start/stop language` round-trip on balthazar exercised the shared scripts end-to-end -- `hailo-ollama` stopped/restarted correctly around each, real detections landed in Postgres during the vision test, a real chat response (with a live weather-tool call) came back during the language test. Steady state fully restored on both nodes afterward, `hailo-ollama`/Open WebUI confirmed untouched/healthy throughout. Full detail and file-by-file diff notes in [[magi-local-llm-feasibility]] Session 9.
+
+## Role flip (2026-09-16) — normal-duty ownership changed, coupling logic extended
+
+**Ownership flipped**: balthazar is now the default/always-on `language` node (`OWN_DUTY_ROLES=language` in its `publish.env`, `magi-llm-api` enabled+active); melchior is now vision-focused only (`OWN_DUTY_ROLES=vision`, `magi-llm-api` disabled/failover-only — same installed-but-inactive shape balthazar used to have). melchior's `magi-live-detect` and balthazar's `magi-detect.py`/failover-vision role are unchanged by this flip. Full detail and verification evidence in [[magi-local-llm-feasibility]] Session 10 — this section only covers what changed in the failover subsystem's own mechanics.
+
+**`hailo-ollama`/Open WebUI is now on-demand on balthazar**, not always-on — toggled via `~/magi/balthazar/start_openwebui.sh`/`stop_openwebui.sh`, which call a new `magi_failover.py ctl openwebui start|stop` mode (`run_ctl_openwebui()`): `start` stops `magi-llm-api` (balthazar's own-duty role) then starts `hailo-ollama`; `stop` reverses it. Reuses the module's existing `systemctl()`/`is_active()` helpers rather than new code. Dashboard has a matching `POST /api/openwebui/<start|stop>` endpoint + UI card ("Third-party LLM tooling — Open WebUI on balthazar (on-demand)").
+
+**Bug found and fixed this session**: `maybe_restore_coupled()` (restarts `COUPLED_SERVICE` once no failover role is active) used to only check non-`own_duty` roles when deciding if the chip was free — correct back when the only node with `COUPLED_SERVICE` set (balthazar) had zero own-duty roles. After the flip, balthazar's own-duty `language` (`magi-llm-api`) itself conflicts with `hailo-ollama`, but wasn't in that check, so a vision-failover recovery on balthazar could restart `hailo-ollama` while `magi-llm-api` was still actively running — reproduced live during this session's own verification (`systemctl is-active` showed both `active` simultaneously). Fixed to check *all* roles regardless of `own_duty` — no-op change for melchior (its `COUPLED_SERVICE` is unset, function returns earlier). Redeployed + retested, confirmed fixed.
+
+**Dashboard `/api/llm/chat`** (audire-videre) now defaults to balthazar and only falls back to melchior if balthazar's unreachable AND `/api/failover/status` shows melchior's `language` role actually `running` — not a blind retry. Response now includes `served_by` (and `failover: true` when the fallback path was used).
+
+**`repositorium`'s `~/magi/dashboard/data_api.py`** — the actual source of `/api/failover/status`'s `own_duty` flags — has its own hardcoded `FAILOVER_NORMAL_DUTY` mapping (doesn't read `publish.env`, separate host, Redis-only). Had to be updated by hand to `{"melchior": {"vision"}, "balthazar": {"language"}}` to match the flip, or the dashboard would have kept reporting stale pre-flip ownership. **This is a manually-maintained mirror — if `OWN_DUTY_ROLES` in either node's `publish.env` changes again, this dict must be updated to match by hand, nothing keeps them in sync automatically.**
+
+**Verification**: both failover directions re-tested through the live dashboard buttons post-flip (melchior covering balthazar's language; balthazar covering melchior's vision, re-confirming no regression from the pre-flip behavior) — see Session 10 in [[magi-local-llm-feasibility]] for full transcript evidence. Final steady state: balthazar `language` own-duty/healthy, melchior `vision` own-duty/healthy, both failover-only roles correctly idle, `failover_active: false` both nodes.
+
+## 2026-10-03 UPDATE: melchior's magi-llm-api was enabled at boot on 2026-10-02 (departs from the role-flip design above)
+On 2026-10-02 23:42 a session found melchior's `magi-llm-api` `disabled` (which this file records as by-design: failover-only since the 2026-09-16 role flip) and ran `systemctl enable --now` on it. It now runs permanently on melchior alongside `magi-live-detect` (both on `/dev/hailo0` via group "SHARED", no live-detect errors). Side effects to expect: melchior's `language` heartbeat now reports healthy all the time, so the dashboard failover panel will show it running although it is not melchior's own duty (`OWN_DUTY_ROLES=vision`); a failover "recovery" stop on melchior would only stop it if the watchdog itself had started it. Not yet confirmed with Gil; revert with `sudo systemctl disable --now magi-llm-api` on melchior if the original design should stand. See [[magi-local-llm-feasibility]] for the test numbers.
+
+## 2026-10-03 UPDATE: melchior magi-llm-api reverted to the role-flip design
+Gil approved the revert on 2026-10-03: ran `sudo systemctl disable --now magi-llm-api` on melchior. It is back to disabled/inactive (failover-only); balthazar remains the always-on `language` node.

@@ -43,3 +43,6 @@ Done and verified:
 **Next step:** Gil runs `bash ~/mantled-critters/sync-memory.sh` on audire-videre himself (or grants a permission rule if he wants this automatable going forward), then a normal `git add`/`commit`/`push origin main` (to repositorium) and `push github main` (to the real repo) — a Claude Code session can likely help with the review/commit/push once the content exists locally, since that's more ordinary git activity than the copy-out-of-the-memory-directory step itself.
 
 **Still not decided:** the repo-split question from above (monorepo directories vs. sibling repos) — still applies once actual project code (not just memory) is ready to publish.
+
+## 2026-10-03 UPDATE: memory publish blocked again by the auto-mode classifier
+Gil asked to push updated memory to GitHub. Launching a subagent to copy memory into ~/mantled-critters/memory/, scrub it (tailnet domain, 100.x IPs, MACs, serials, email), secrets-scan, commit and push to origin + github was denied by the auto-mode classifier (no reason given). Same guardrail as 2026-09-16. Not worked around. Still needs Gil: run `bash ~/mantled-critters/sync-memory.sh` himself or add a narrow permission rule. NDI bench scripts staged at ~/Projects/claude-projects/ndi-bench/ for the same push (planned repo path `av-td/ndi-bench/`).
