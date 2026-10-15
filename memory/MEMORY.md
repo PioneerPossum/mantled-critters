@@ -43,3 +43,4 @@
 - [magi-dashboard](magi-dashboard.md) — the magi-cluster web dashboard (:8090 status/control UI): where it runs, how to start/stop it, what it shows, known limits; its Board tab now redirects to [[magi-board]]
 - [magi-failover](magi-failover.md) — melchior<->balthazar heartbeat failover (liveness only, not intrusion detection): how it's built, status checks, manual override, live-test evidence
 - [feedback-dated-note-before-ending](feedback-dated-note-before-ending.md) — standing rule (2026-10-09): a session that did real work writes a dated memory note before ending; Stop hook enforces NOTE/BOARD/MEMORY/SYNC once, fails open; opt-out `magi-board note-skip`
+- [cybrdek-device](cybrdek-device.md) — Gil's Clockwork Pi CM4 Lite "cybrdek" (192.168.10.176 on the Mudi LAN): key access from audire-videre, session + memory seeded 2026-10-15, open items
