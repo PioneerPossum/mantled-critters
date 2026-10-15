@@ -43,7 +43,7 @@ Gil asked how to use the cluster + MacBook/other laptops to reduce Claude coding
 Proposed shape given to Gil: an OpenAI-compatible router on audire-videre (tiers: Hailo Pi nodes for triage/tools/short answers → opportunistic laptop worker for small code tasks → online fallback), router decisions shown on the dashboard as a MAGI "vote". Caveats told to him: more Claude Code sessions share the same plan pool (don't add usage); an automated online fallback should use an API key (separate pay-as-you-go billing), not the subscription login piped through a gateway. Open question: MacBook RAM (decides model size).
 
 ## 2026-09-27 — workers assigned
-- **MacBook Pro** (M1 Pro, 16 GB), Claude Code session `macbookpro-<tailnet>-ts-net-kind-gadget`.
+- **MacBook Pro** (M1 Pro, 16 GB), Claude Code session `macbookpro-<your-tailnet>-ts-net-kind-gadget`.
 - **Desktop PC** `desktop-uddm435` (Ryzen 7 9800X3D, 64 GB RAM, Radeon RX 9070 XT 16 GB + 2 GB integrated Radeon), session `desktop-uddm435-quirky-bumblebee`. Not the WoL PC.
 - The Wake-on-LAN machine was audire-videre itself. It has a Quadro T1000 Mobile 4 GB, but no NVIDIA driver is installed (no nvidia-smi; needs sudo) — possible small tier later.
 - Both sessions were sent setup briefs via SendMessage. Contract: an OpenAI-compatible server on the LAN IP, and idle-gated announces to [[magi-router]] `/router/announce` (names `macbook` / `desktop`, tier gpu). The token is NOT sent over messages — Gil copies `~/.config/magi-router/token` to each worker himself.

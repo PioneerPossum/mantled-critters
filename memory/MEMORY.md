@@ -34,3 +34,12 @@
 - [claude-code-usage-glance-mod](claude-code-usage-glance-mod.md) — Claude Code mod 'usage-glance' (2026-10-04): condensed context/limits/cost/agent roster; band (terminal+desktop) + /glance pane (phone too); validated, live render unconfirmed
 - [magi-nvenc-recorder](magi-nvenc-recorder.md) — recorder on hevc_nvenc via private ffmpeg7.1/PyAV15.1 build (driver 550 too old for API 13); rollback drop-in, ~2 GB/h at cq32
 - [magi-end-product-autonomous-vj](magi-end-product-autonomous-vj.md) — Gil's END PRODUCT (2026-10-05): self-training mood/video processor driving Resolume autonomously from any music source, human OSC + interaction-table handoff; not built
+- [secret-handoff-method](secret-handoff-method.md) — how Gil hands me credentials: ~/bin/set-secret NAME -> ~/.secrets/NAME.secret (600), optional gpg copy only he can decrypt; never pass secrets via -D flags
+- [magi-live-page](magi-live-page.md) — Live tab pipeline (MediaMTX WHEP, Opus+H.264) and the 2026-10-09 phone audio-control fix (iOS read-only volume, in-page gain option)
+- [magi-https](magi-https.md) — HTTPS front end on audire-videre: user-level Caddy + local CA (8443 dashboard, 8445 VJ, 8446 router), CA install, 443 switch, pending app changes
+- [board-handoff-method](board-handoff-method.md) — how memory reaches the dashboard board via fragment.json + magi-board CLI without colliding with the board session; public side never carries addresses/personal info
+- [magi-board](magi-board.md) — MAGI-CLUSTER BOARD (2026-10-09): two-tier service on :8096 (public summary / login-gated detail), `~/bin/magi-board` CLI, Stop hook + watchdog autosync keep it current; open: Gil must run board-adduser
+- [feedback-board-auto-update](feedback-board-auto-update.md) — standing rule: every MAGI task updates the board; public side sanitized (validator-enforced), detail behind login
+- [magi-dashboard](magi-dashboard.md) — the magi-cluster web dashboard (:8090 status/control UI): where it runs, how to start/stop it, what it shows, known limits; its Board tab now redirects to [[magi-board]]
+- [magi-failover](magi-failover.md) — melchior<->balthazar heartbeat failover (liveness only, not intrusion detection): how it's built, status checks, manual override, live-test evidence
+- [feedback-dated-note-before-ending](feedback-dated-note-before-ending.md) — standing rule (2026-10-09): a session that did real work writes a dated memory note before ending; Stop hook enforces NOTE/BOARD/MEMORY/SYNC once, fails open; opt-out `magi-board note-skip`

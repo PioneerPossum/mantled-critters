@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MAGI VJ Control</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+JP:wght@700;900&family=Playfair+Display:wght@800&family=Orbitron:wght@800&display=swap">
+<link rel="stylesheet" href="/static/nerv.css">
+<link rel="stylesheet" href="/web/vj.css">
+</head>
+<body class="scan">
+<div class="page">
+
+  <header class="topbar">
+    <div class="l">
+      <div class="ser logo">MAGI</div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div class="hd" style="font-size:16px;letter-spacing:.16em">Autonomous VJ · control authority</div>
+        <div class="cap">制御権限 · interaction table · takeover and locks</div>
+      </div>
+    </div>
+    <div class="r">
+      <span class="badge failed" id="auth-badge" style="font-size:14px;padding:3px 14px" title="Control needs a sign-in">LOCKED · READ ONLY</span>
+      <button class="btn" id="auth-btn" type="button">SIGN IN</button>
+      <span class="badge up" id="link-badge" style="font-size:14px;padding:3px 14px">CONNECTING</span>
+      <span class="dim" id="clock" style="font-size:13px"></span>
+    </div>
+  </header>
+
+  <div id="ro-strip" class="ro-strip" role="status"><b class="hd">READ ONLY</b> <span>You can watch everything. Sign in to change authority, take locks or add feedback.</span></div>
+
+  <dialog id="login" aria-labelledby="login-t">
+    <form method="dialog" id="login-form" autocomplete="on">
+      <div class="hd" id="login-t" style="font-size:18px;letter-spacing:.14em">Sign in to control</div>
+      <div class="cap" id="login-note">Control authority is production access.</div>
+      <label class="cap" for="login-user">User</label><input id="login-user" class="field" name="username" autocomplete="username" required>
+      <label class="cap" for="login-pw">Password</label><input id="login-pw" class="field" name="password" type="password" autocomplete="current-password" required>
+      <div class="login-err" id="login-err" role="alert" hidden></div>
+      <div class="dock-act"><button class="btn primary" id="login-go" type="submit">Sign in</button><button class="btn" id="login-cancel" type="button">Cancel</button></div>
+    </form>
+  </dialog>
+
+  <div id="linklost" class="emerg" hidden role="alert">
+    <div class="hz"></div>
+    <div class="body"><div class="big hd">LINK LOST</div>
+      <div><div class="hd" style="font-size:18px">Control state unreachable</div>
+      <div class="cap" id="linklost-why">controls are disabled until the link returns</div></div></div>
+    <div class="hz"></div>
+  </div>
+
+  <section aria-label="Control authority" class="auth" id="authority" data-mode="manual">
+    <div class="hero-head">
+      <span class="banner">Control authority</span>
+      <span class="cap" id="auth-sub">reading state…</span>
+    </div>
+    <div class="auth-grid">
+      <div class="readout stamp-box" id="auth-readout">
+        <div class="cap">Current authority</div>
+        <div class="stamp hd" id="auth-word">—</div>
+        <div class="kan jp" id="auth-kan">—</div>
+        <div class="k" id="auth-desc"></div>
+        <div class="wipe" aria-hidden="true"></div>
+      </div>
+      <div class="modes3" role="radiogroup" aria-label="Choose authority">
+        <button class="mode" role="radio" data-mode="auto" aria-checked="false"><span class="jp">自動</span><b class="hd">AUTO</b><span class="cap">AI drives tier 1 + quantized tier 2</span></button>
+        <button class="mode" role="radio" data-mode="assist" aria-checked="false"><span class="jp">補助</span><b class="hd">ASSIST</b><span class="cap">AI drives tier 1, only proposes tier 2</span></button>
+        <button class="mode" role="radio" data-mode="manual" aria-checked="false"><span class="jp">手動</span><b class="hd">MANUAL</b><span class="cap">you have control, AI sends nothing</span></button>
+      </div>
+      <div class="dock box" id="dock" hidden>
+        <div class="cap">Confirmation required</div>
+        <div class="hd dock-title" id="dock-title"></div>
+        <div class="dock-note" id="dock-note"></div>
+        <div class="dock-act">
+          <button class="hold primary" id="dock-hold" type="button"><i class="fill"></i><span class="lab hd">HOLD TO CONFIRM</span></button>
+          <button class="btn" id="dock-cancel" type="button">Cancel</button>
+        </div>
+        <div class="cap" id="dock-msg" aria-live="polite">Press and hold for about 1.2 seconds. Letting go early cancels.</div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Interaction table">
+    <div class="hero-head" style="margin-bottom:10px">
+      <span class="banner">Interaction table</span>
+      <span class="cap" id="table-sub">AI-reachable controls · lock one to take it for yourself while the AI keeps the rest</span>
+    </div>
+    <div id="table"></div>
+  </section>
+
+  <section aria-label="Live reactions" id="react">
+    <div class="hero-head" style="margin-bottom:10px">
+      <span class="banner">Live reactions</span>
+      <span class="cap" id="react-sub">Anyone can react. Signed in, your reaction is weighted operator feedback; signed out it is a small crowd indication.</span>
+    </div>
+    <div class="react-bar" role="group" aria-label="Reactions">
+      <button class="btn react-btn" type="button" data-k="like"><b class="hd">LOVE IT</b><span class="cap">keep this look</span></button>
+      <button class="btn react-btn" type="button" data-k="more"><b class="hd">MORE</b><span class="cap">more intensity</span></button>
+      <button class="btn react-btn" type="button" data-k="less"><b class="hd">LESS</b><span class="cap">calmer</span></button>
+      <button class="btn react-btn" type="button" data-k="dislike"><b class="hd">NOT FEELING IT</b><span class="cap">change it</span></button>
+    </div>
+    <div class="react-meta">
+      <label class="cap" id="react-str-l" for="react-str" hidden>Operator weight</label>
+      <select id="react-str" class="field" hidden><option value="1">light</option><option value="2" selected>normal</option><option value="3">strong</option></select>
+      <span class="cap">Crowd mood, last 60 s</span><span class="meter" aria-hidden="true"><i id="react-fill"></i></span><span class="dim" id="react-counts">no reactions yet</span>
+    </div>
+  </section>
+
+  <section aria-label="AI suggestions" id="suggest">
+    <div class="hero-head" style="margin-bottom:10px">
+      <span class="banner">AI suggestions</span>
+      <span class="cap" id="sug-sub">what the AI proposed but did not send (ASSIST mode)</span>
+    </div>
+    <label class="cap" for="sug-latest">Latest suggestion</label>
+    <textarea id="sug-latest" class="field" rows="2" readonly placeholder="No suggestions yet. In ASSIST mode the AI proposes clip changes here instead of sending them."></textarea>
+    <div id="sug-list" class="hist"></div>
+  </section>
+
+  <section class="two" aria-label="Activity">
+    <div class="box pane">
+      <div class="hd" style="font-size:15px">Music feed</div>
+      <div id="audio" class="audio"></div>
+      <div class="hd" style="font-size:15px;margin-top:8px">Authority log</div>
+      <div id="ctl-log" class="hist"></div>
+    </div>
+    <div class="box pane">
+      <div class="hd" style="font-size:15px">Recent AI requests <span class="cap" id="act-sub"></span></div>
+      <div id="acts" class="hist acts"></div>
+    </div>
+  </section>
+
+  <section aria-label="Recorded shows" id="shows">
+    <div class="hero-head" style="margin-bottom:10px">
+      <span class="banner">Recorded shows · review</span>
+      <span class="cap">watch the recorded stream, then mark what worked and where the AI could have acted</span>
+    </div>
+    <div id="show-list" class="show-list"></div>
+    <div id="viewer" class="viewer box" hidden>
+      <div class="viewer-head">
+        <div><div class="hd" id="v-title" style="font-size:20px"></div><div class="cap" id="v-sub"></div></div>
+        <div class="viewer-btns"><span class="badge" id="v-status"></span><button class="btn" id="v-review" type="button"></button><button class="btn" id="v-close" type="button">Close</button></div>
+      </div>
+      <div class="v-note" id="v-note"></div>
+      <div class="v-stage"><video id="vid" controls preload="metadata" playsinline></video><div class="v-novideo" id="v-novideo" hidden>No video was archived for this show.</div></div>
+      <div class="tl-wrap"><canvas id="tl" height="150" aria-label="Show timeline: music energy, macro values, clip triggers and your feedback. Click to seek."></canvas><div id="tl-tip" class="tl-tip" hidden></div></div>
+      <div class="tl-key cap"><span class="k e">music energy</span><span class="k l2">link2 hue (requested)</span><span class="k l5">link5 kaleido (requested)</span><span class="k l7">link7 twitch (requested)</span><span class="k tr">clip trigger</span><span class="k op">possible opportunity</span><span class="k fb">your feedback</span></div>
+      <div class="v-grid">
+        <div class="v-form">
+          <div class="hd" style="font-size:15px">Mark this moment (anyone, crowd marker)</div>
+          <div class="react-bar small" id="fb-crowd" role="group" aria-label="Crowd markers">
+            <button class="btn react-btn" type="button" data-k="like">LOVE IT</button><button class="btn react-btn" type="button" data-k="more">MORE</button><button class="btn react-btn" type="button" data-k="less">LESS</button><button class="btn react-btn" type="button" data-k="dislike">NOT FEELING IT</button>
+          </div>
+          <div class="cap" id="fb-crowd-msg" aria-live="polite">Crowd markers show on the timeline; they carry a small weight and never replace operator feedback.</div>
+          <div class="hd" style="font-size:15px;margin-top:10px">Operator feedback (weighted, sign-in required) at <b id="fb-time">0:00</b></div>
+          <div class="cats" id="cats" role="radiogroup" aria-label="Category"></div>
+          <label class="cap" for="fb-sug" id="fb-sug-l">What the AI could have done</label>
+          <select id="fb-sug" class="field"></select>
+          <label class="cap" for="fb-strength">Weight</label>
+          <select id="fb-strength" class="field"><option value="1">light (0.5)</option><option value="2" selected>normal (1.0)</option><option value="3">strong (2.0)</option></select>
+          <textarea id="fb-text" class="field" rows="3" placeholder="Optional note: what you saw, what you would have wanted…"></textarea>
+          <div class="dock-act"><button class="btn primary" id="fb-add" type="button">Add feedback at this moment</button><span class="cap" id="fb-msg" aria-live="polite"></span></div>
+        </div>
+        <div class="v-fb"><div class="hd" style="font-size:15px">Feedback and opportunities</div><div id="fb-list" class="fb-list"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="cap" style="text-align:center">Changes need a deliberate hold and are audited in Redis <code>magi:vj:control</code> · the gateway reads these every request</div>
+</div>
+<div id="live" class="sr" aria-live="polite" role="status"></div>
+<script src="/web/vj.js"></script>
+</body>
+</html>

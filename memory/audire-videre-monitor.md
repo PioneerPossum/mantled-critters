@@ -1,6 +1,6 @@
 ---
 name: audire-videre-monitor
-description: standing monitor role for audire-videre: the change-only watchdog script, how to (re)arm it under the Monitor tool, what it checks, and the standing autonomy rules Gil set
+description: "standing monitor role for audire-videre: the change-only watchdog script, how to (re)arm it under the Monitor tool, what it checks, and the standing autonomy rules Gil set"
 metadata:
   type: project
 ---

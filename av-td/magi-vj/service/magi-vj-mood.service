@@ -1,0 +1,14 @@
+[Unit]
+Description=MAGI VJ mood engine (LIVE: drives Arena through the gateway while mode is auto/assist; runs until stopped)
+After=network-online.target redis-server.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/magi/vj
+Environment=VJ_ENABLE=1 PYTHONUNBUFFERED=1
+ExecStartPre=/usr/bin/python3 %h/magi/vj/vjmode.py preflight
+ExecStart=/usr/bin/python3 %h/magi/vj/mood.py
+ExecStopPost=/usr/bin/python3 %h/magi/vj/vjmode.py settle
+Restart=on-failure
+RestartSec=3
+# deliberately NOT enabled at boot: a human starts it with ~/bin/vj-mood start

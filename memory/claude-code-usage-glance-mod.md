@@ -1,6 +1,6 @@
 ---
 name: claude-code-usage-glance-mod
-description: Claude Code mod "usage-glance" (built 2026-10-04): condensed context/rate-limit/cost/agent-roster readout; band above prompt (terminal+desktop) and /glance pane (all surfaces incl. phone)
+description: 'Claude Code mod "usage-glance" (built 2026-10-04): condensed context/rate-limit/cost/agent-roster readout; band above prompt (terminal+desktop) and /glance pane (all surfaces incl. phone)'
 metadata:
   type: reference
 ---

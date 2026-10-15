@@ -1,0 +1,290 @@
+{
+  "_comment": "Tier policy for the autonomous-VJ OSC gateway, built from the Arena 7.22.4 REST digest of 2026-10-05. Default DENY; tier-3 deny always wins. '*' = one path segment, '**' = any depth, '{1,2,4}' = alternation. OSC addresses are DERIVED from REST keys: every rule is verified=false until a live OSC round-trip test passes, and unverified rules are refused when VJ_ENABLE=1. Only tempo is verified, and magi-audio owns tempo (not in this gateway). Tier-1 float values are given in NATIVE units and normalized by 'range' (v-min)/(max-min) before sending.",
+  "tier3_deny": [
+    "/application/**",
+    "/composition/screens/**",
+    "/composition/outputs/**",
+    "/composition/**/output/**",
+    "/composition/**/ndi*/**",
+    "/composition/**/vban*/**",
+    "/composition/**/slice*/**",
+    "/composition/**/screen*/**",
+    "/composition/audio/**",
+    "/composition/layers/*/audio/**",
+    "/composition/video/width",
+    "/composition/video/height",
+    "/composition/layers/*/video/width",
+    "/composition/layers/*/video/height",
+    "/composition/layers/*/clips/*/video/width",
+    "/composition/layers/*/clips/*/video/height",
+    "/composition/name",
+    "/composition/**/name",
+    "/composition/**/colorid",
+    "/composition/cliptarget",
+    "/composition/cliptriggerstyle",
+    "/composition/clipbeatsnap",
+    "/composition/layers/*/clips/*/target",
+    "/composition/layers/*/clips/*/triggerstyle",
+    "/composition/layers/*/clips/*/beatsnap",
+    "/composition/**/transporttype",
+    "/composition/**/transport/controls/play*",
+    "/composition/**/transport/controls/duration",
+    "/composition/**/transport/position",
+    "/composition/**/ignorecolumntrigger",
+    "/composition/**/faderstart",
+    "/composition/layers/*/crossfadergroup",
+    "/composition/layers/*/maskmode",
+    "/composition/layers/*/solo",
+    "/composition/layers/*/autopilot/**",
+    "/composition/layers/*/video/autosize",
+    "/composition/layers/*/clips/*/video/resize",
+    "/composition/decks/*/closed",
+    "/composition/decks/*/scrollx",
+    "/composition/**/selected",
+    "/composition/crossfader/**",
+    "/composition/tempocontroller/**",
+    "/composition/layers/*/clips/*/video/source/text",
+    "/composition/columns/**",
+    "/composition/decks/**",
+    "/composition/layers/*/clips/*/transport/controls/speed",
+    "/composition/selectedclip/**",
+    "/composition/**/selectedclip/**",
+    "/composition/**/resync",
+    "/composition/**/tempo*",
+    "/composition/**/tap*",
+    "/composition/dashboard/link{1,3,4,6,8}"
+  ],
+  "tier1": {
+    "_comment": "Continuous. Macro knobs (dashboard links) are the preferred AI surface: Gil maps them inside Arena to whatever he wants moved.",
+    "rules": [
+      {
+        "pattern": "/composition/dashboard/link7",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "max_value": 0.15,
+        "min_interval_s": 0.2,
+        "max_step": 0.01,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/dashboard/link5",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "max_value": 0.45,
+        "min_interval_s": 0.2,
+        "max_step": 0.01,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/dashboard/link2",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.01,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/layers/*/dashboard/link{1,2,3,4,5,6,7,8}",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.1
+      },
+      {
+        "pattern": "/composition/layers/*/video/opacity",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.1,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/layers/*/video/effects/transform/rotationz",
+        "kind": "float",
+        "range": [
+          -180,
+          180
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.02,
+        "verified": true
+      }
+    ]
+  },
+  "tier2": {
+    "_comment": "Discrete/abrupt. Queued, released on a bar boundary, per-rule cooldown. Clip patterns list only slots that hold content (24 as of the 2026-10-05 snapshot).",
+    "quantize_bars": 8,
+    "rules": [
+      {
+        "pattern": "/composition/layers/1/clips/1/connect",
+        "kind": "trigger",
+        "cooldown_s": 8,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/layers/2/clips/{1,2,4,5}/connect",
+        "kind": "trigger",
+        "cooldown_s": 8,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/layers/3/clips/{1,2,3,4,5,6}/connect",
+        "kind": "trigger",
+        "cooldown_s": 8,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/layers/{4,5,7,11}/clips/1/connect",
+        "kind": "trigger",
+        "cooldown_s": 8,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/layers/6/clips/{1,2,3}/connect",
+        "kind": "trigger",
+        "cooldown_s": 8,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/layers/9/clips/{1,2,3,4,5}/connect",
+        "kind": "trigger",
+        "cooldown_s": 8,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/layers/10/clips/5/connect",
+        "kind": "trigger",
+        "cooldown_s": 8,
+        "verified": true
+      },
+      {
+        "pattern": "/composition/video/effects/{shiftrgb,flip,polarkaleido,mirrorquad,twitcheffect,trails,huerotate,wavewarp}/bypassed",
+        "kind": "bool",
+        "cooldown_s": 4
+      }
+    ]
+  },
+  "_verification_2026-10-05": "Live OSC test via legion-resolume REST readback: floats normalized 0..1 over min..max (rotationz -180..180 sent 0.75 -> 90); clip connect accepts int 1 and float 1.0; composition dashboard link7 verified (and is MAPPED to TwitchEffect globaltwitch; link8 to trails feedback). Column triggers black out sparse columns and deck selects blank the grid and invalidate clip param ids: both moved to tier 3 (human only). Clip speed path unverified (derived path no-ops); effect-name addressing still unverified (test inconclusive); layer/clip transform 'bypassed' does not exist.",
+  "tier1_pending_verification": {
+    "_comment": "Direct composition-effect addresses (effect-name/param) did NOT work in pass 2 (no change); Resolume likely wants an extra /effect/ segment. Dashboard links are the verified indirect handle. clip speed: /transport/position/behaviour/speed exists but is non-linear (0.3 -> 1.354 on 0..10), needs calibration. Also untested: /composition/master and layer master. RESOLVED 2026-10-05 (Gil, Arena Edit OSC): a param linked to a dashboard knob takes its OSC address FROM THE LINK (Global Twitch = /composition/dashboard/link7), so direct effect addresses no-op for linked params; unlinked effect-param pattern still unknown. ADDRESS PATTERNS (Gil, Edit OSC, 2026-10-05): inner effect params = /composition/video/effects/<name>/effect/<param> (opacity/bypassed/mixer stay directly under <name>; built-in transform has no /effect/); generator source params = .../clips/C/video/source/<generatortype>/<param> (Text Animator = textgenerator; type names internal, read each in Edit OSC); /composition/selectedclip/** aliases the selected clip and is denied.",
+    "rules": [
+      {
+        "pattern": "/composition/master",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.25,
+        "max_step": 0.08
+      },
+      {
+        "pattern": "/composition/layers/*/master",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.1
+      },
+      {
+        "pattern": "/composition/video/effects/huerotate/effect/huerotate",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.05
+      },
+      {
+        "pattern": "/composition/video/effects/huerotate/effect/satscale",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.05
+      },
+      {
+        "pattern": "/composition/video/effects/shiftrgb/effect/distance",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.1
+      },
+      {
+        "pattern": "/composition/video/effects/wavewarp/effect/{height,width,angle,speed}",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.1
+      },
+      {
+        "pattern": "/composition/video/effects/twitcheffect/effect/globaltwitch",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.15
+      },
+      {
+        "pattern": "/composition/video/effects/trails/effect/feedback",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.05
+      },
+      {
+        "pattern": "/composition/video/effects/polarkaleido/effect/angle",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.05
+      },
+      {
+        "pattern": "/composition/video/effects/{shiftrgb,flip,polarkaleido,mirrorquad,twitcheffect,trails,huerotate,wavewarp}/opacity",
+        "kind": "float",
+        "range": [
+          0,
+          1
+        ],
+        "min_interval_s": 0.2,
+        "max_step": 0.15
+      }
+    ]
+  },
+  "_verification_pass2": "2026-10-05 19:00: effect-name direct addressing no-ops; clip speed at .../transport/position/behaviour/speed exists, non-linear. Link labels (REST view alt names, mapping inferred): L1 RGB, L2 Hue, L3 Distort (Gil set 0.5, leave alone), L4 Flip, L5 Kaleido, L6 Mirror, L7 Twitch (verified -> globaltwitch), L8 Trails (=feedback 0.739).",
+  "_show2": "2026-10-05 mock show 2 per Gil: no distort/wavy/jarring. Links 3 and 8 (and 1,4,6) denied; twitch capped 0.15, kaleido 0.45, slew 0.01/tick; clips on 8-bar boundaries."
+}

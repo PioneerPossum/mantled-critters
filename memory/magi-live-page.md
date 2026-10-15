@@ -1,0 +1,14 @@
+---
+name: magi-live-page
+description: "Dashboard Live tab (WebRTC/WHEP from MediaMTX): how audio is delivered, the 2026-10-09 phone audio-control bug and fix, what to test on a phone"
+metadata:
+  node_type: memory
+  type: project
+---
+
+**Pipeline:** `magi-ndi-live.service` (~/magi-video/ndi_live.py: Arena NDI + VBAN -> H.264 (h264_nvenc) + Opus stereo, ONE RTSP session) -> `magi-live-mediamtx.service` (MediaMTX; RTSP ingest 127.0.0.1:8554, WebRTC/WHEP :8889, path `live`, WHEP at `http://<host>:8889/live/whep`, 404 when no publisher) -> `~/magi_dashboard/static/live.js` (Live tab, WHEP viewer, one `<video id=lv-video autoplay muted playsinline>`). Codecs are phone-safe (Opus + H.264 are mandatory-to-implement in WebRTC for Safari/Chrome).
+
+## 2026-10-09: phone audio CONTROL bug (Gil: page mute/volume did nothing on his phone, phone's own volume worked)
+- **Root cause (high confidence for iOS/iPadOS, the symptom matches exactly):** the page volume slider only did `video.volume = x`, and iOS Safari makes `HTMLMediaElement.volume` read-only (always 1), so the slider can never change loudness there; only the hardware buttons work (which is what Gil saw). **Also fixed (real bugs on any phone):** the slider's `input` handler called `unmute()`, but `input` fires mid-drag and is not a user gesture, so mobile browsers refuse to unmute/play from it; and the AudioContext (level meter) was created at page load outside a gesture, which can disturb the iOS audio session. Not verified on a real phone (cannot drive one from here); the OS of Gil's phone was not stated.
+- **Fix (`live.js`, backup `live.js.bak-20261009`):** sound state tracked in JS (`soundOn`) instead of read from `video.muted`; feature-detects whether `video.volume` is settable (`volOK`); where it is read-only the slider is disabled with the note "This phone ignores page volume: use its volume buttons" and an opt-in button **"In-page volume (beta)"** routes sound through a Web Audio GainNode (element stays muted, slider then works; tap "Back to device volume" if there is no sound, because Web Audio output of remote WebRTC streams is flaky on some Safari versions); unmute/AudioContext creation only inside tap handlers; slider unmutes on `change`/`pointerup` (gesture), not on `input`; visible "🔊 sound on / 🔇 sound off · tap Unmute" text; meter starts only after the first tap. Logic exercised against a stub DOM for both volume modes (QuickJS), syntax checked; no browser run.
+- **Phone test:** hard-reload the dashboard Live tab (Safari/Chrome cache `live.js`), tap Unmute, check the status text says "sound on" and audio plays; move the slider (Android: should change loudness; iPhone: slider greyed with the note); on iPhone try "In-page volume (beta)" and move the slider. If it still fails send: phone model + OS/browser version, what the status text and the Audio/Link stat boxes say, and whether the big "Click to unmute" overlay appeared.
