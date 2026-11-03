@@ -1,0 +1,8 @@
+[Unit]
+Description=Wi-Fi canary + DNS resolver flag (~/.cache/net-diag/canary.flag)
+[Service]
+ExecStart=/usr/bin/python3 -I %h/bin/canary-flag.py --watch 60
+Restart=always
+RestartSec=10
+[Install]
+WantedBy=default.target

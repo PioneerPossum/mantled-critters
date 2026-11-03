@@ -7,3 +7,7 @@
 *.key
 credentials*
 secrets*
+
+# esp32/: placeholder headers and the build-time generator contain no secrets (reviewed); a real secrets.h stays ignored by the rule above
+!esp32/**/secrets.h.example
+!esp32/**/scripts/secrets.py
