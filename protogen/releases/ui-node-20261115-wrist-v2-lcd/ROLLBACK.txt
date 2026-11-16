@@ -1,0 +1,5 @@
+Wrist v2 board (ESP32-S3 N16R8, MAC 02:00:00:00:00:03) firmware with the 16x2 LCD encoder menu, 2026-11-15 (UI_WRIST_V2 1, keypad scanning off). LCD as wired: RS 8, E 9, D4 11, D5 18, D6 39, D7 40. I2C: SDA 10, SCL 12.
+Working: encoder 6/7/15, buzzer 16, TM1637 4/5, TP223 touch 21, ESP-NOW to the visor (02:00:00:00:00:01), serial commands.
+Not implemented: servo, MOSFET, CO2, INMP441. Do not use the serial `buzzfind` command on this board (it puts a tone on 2, 13, 14, 38, 47, 48).
+Flash: ~/.local/bin/esptool --port /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_02:00:00:00:00:03-if00 write-flash 0x0 ui-node.ino.bootloader.bin 0x8000 ui-node.ino.partitions.bin 0xe000 boot_app0.bin 0x10000 ui-node.ino.bin
+Factory contents as found: ~/esp32-tools/backups/flash-s3-020000000003-20261115-asfound-first3M1.bin (write back at 0x0).

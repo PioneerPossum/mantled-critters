@@ -1,0 +1,217 @@
+net,class,status,part,pin,pin_label,part_title
+HUB75_R1,sig,built,S3V,GPIO4,GPIO4,ESP32-S3 N16R8 (visor)
+HUB75_R1,sig,built,PANEL1_IN,1,R1,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_G1,sig,built,S3V,GPIO5,GPIO5,ESP32-S3 N16R8 (visor)
+HUB75_G1,sig,built,PANEL1_IN,2,G1,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_B1,sig,built,S3V,GPIO6,GPIO6,ESP32-S3 N16R8 (visor)
+HUB75_B1,sig,built,PANEL1_IN,3,B1,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_R2,sig,built,S3V,GPIO7,GPIO7,ESP32-S3 N16R8 (visor)
+HUB75_R2,sig,built,PANEL1_IN,5,R2,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_G2,sig,built,S3V,GPIO15,GPIO15,ESP32-S3 N16R8 (visor)
+HUB75_G2,sig,built,PANEL1_IN,6,G2,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_B2,sig,built,S3V,GPIO16,GPIO16,ESP32-S3 N16R8 (visor)
+HUB75_B2,sig,built,PANEL1_IN,7,B2,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_A,sig,built,S3V,GPIO18,GPIO18,ESP32-S3 N16R8 (visor)
+HUB75_A,sig,built,PANEL1_IN,9,A,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_B,sig,built,S3V,GPIO8,GPIO8,ESP32-S3 N16R8 (visor)
+HUB75_B,sig,built,PANEL1_IN,10,B,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_C,sig,built,S3V,GPIO3,GPIO3,ESP32-S3 N16R8 (visor)
+HUB75_C,sig,built,PANEL1_IN,11,C,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_D,sig,built,S3V,GPIO42,GPIO42,ESP32-S3 N16R8 (visor)
+HUB75_D,sig,built,PANEL1_IN,12,D,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_CLK,sig,built,S3V,GPIO41,GPIO41,ESP32-S3 N16R8 (visor)
+HUB75_CLK,sig,built,PANEL1_IN,13,CLK,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_LAT,sig,built,S3V,GPIO40,GPIO40,ESP32-S3 N16R8 (visor)
+HUB75_LAT,sig,built,PANEL1_IN,14,LAT,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+HUB75_OE,sig,built,S3V,GPIO2,GPIO2,ESP32-S3 N16R8 (visor)
+HUB75_OE,sig,built,PANEL1_IN,15,OE,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+I2C_SDA_V,i2c,planned,S3V,GPIO11,GPIO11,ESP32-S3 N16R8 (visor)
+I2C_SDA_V,i2c,planned,OLED13,SDA,SDA,1.3 in OLED 128x64 (SH1106 likely)
+I2C_SDA_V,i2c,planned,VL53,SDA,SDA,VL53L1X distance (boop)
+I2C_SDA_V,i2c,planned,IMU1,SDA,SDA,LSM6DS3 IMU #1
+I2C_SDA_V,i2c,planned,BME_IN,SDA,SDA,GY-BME280 inside the head
+I2C_SDA_V,i2c,planned,PCA,SDA,SDA,PCA9685 16-ch servo driver (HiLetgo)
+I2C_SCL_V,i2c,planned,S3V,GPIO12,GPIO12,ESP32-S3 N16R8 (visor)
+I2C_SCL_V,i2c,planned,OLED13,SCL,SCL,1.3 in OLED 128x64 (SH1106 likely)
+I2C_SCL_V,i2c,planned,VL53,SCL,SCL,VL53L1X distance (boop)
+I2C_SCL_V,i2c,planned,IMU1,SCL,SCL,LSM6DS3 IMU #1
+I2C_SCL_V,i2c,planned,BME_IN,SCL,SCL,GY-BME280 inside the head
+I2C_SCL_V,i2c,planned,PCA,SCL,SCL,PCA9685 16-ch servo driver (HiLetgo)
+MIC1_OUT,sig,planned,S3V,GPIO1,GPIO1,ESP32-S3 N16R8 (visor)
+MIC1_OUT,sig,planned,MIC1,OUT,OUT,MAX4466 analog mic
+I2S_BCLK,i2s,planned,S3V,GPIO17,GPIO17,ESP32-S3 N16R8 (visor)
+I2S_BCLK,i2s,planned,INMP_L,SCK,SCK,INMP441 I2S mic LEFT
+I2S_BCLK,i2s,planned,INMP_R,SCK,SCK,INMP441 I2S mic RIGHT
+I2S_BCLK,i2s,planned,DAC,BCK,BCK,I2S DAC (PCM5102A type) -> IEM jack
+I2S_WS,i2s,planned,S3V,GPIO21,GPIO21,ESP32-S3 N16R8 (visor)
+I2S_WS,i2s,planned,INMP_L,WS,WS,INMP441 I2S mic LEFT
+I2S_WS,i2s,planned,INMP_R,WS,WS,INMP441 I2S mic RIGHT
+I2S_WS,i2s,planned,DAC,LRCK,LRCK,I2S DAC (PCM5102A type) -> IEM jack
+I2S_SD_IN,i2s,planned,S3V,GPIO38,GPIO38,ESP32-S3 N16R8 (visor)
+I2S_SD_IN,i2s,planned,INMP_L,SD,SD,INMP441 I2S mic LEFT
+I2S_SD_IN,i2s,planned,INMP_R,SD,SD,INMP441 I2S mic RIGHT
+I2S_DOUT,i2s,planned,S3V,GPIO39,GPIO39,ESP32-S3 N16R8 (visor)
+I2S_DOUT,i2s,planned,DAC,DIN,DIN,I2S DAC (PCM5102A type) -> IEM jack
+FAN_PWM,sig,planned,S3V,GPIO13,GPIO13,ESP32-S3 N16R8 (visor)
+FAN_PWM,sig,planned,FAN,4,PWM,Noctua NF-A4x10 PWM 12 V fan
+FAN_TACH,sig,planned,S3V,GPIO14,GPIO14,ESP32-S3 N16R8 (visor)
+FAN_TACH,sig,planned,FAN,3,TACH,Noctua NF-A4x10 PWM 12 V fan
+BOOP_IN,sig,optional,S3V,GPIO9,GPIO9,ESP32-S3 N16R8 (visor)
+BOOP_IN,sig,optional,BOOP,OUT,OUT,Boop sensor (optional)
+FACEBTN_IN,sig,optional,S3V,GPIO10,GPIO10,ESP32-S3 N16R8 (visor)
+FACEBTN_IN,sig,optional,FACEBTN,B,B,Face button (optional)
+SERVO1_PWM,pwr_sig,planned,PCA,CH0,CH0,PCA9685 16-ch servo driver (HiLetgo)
+SERVO1_PWM,pwr_sig,planned,SERVO1,SIG,SIG,MG90S vent servo 1
+SERVO2_PWM,pwr_sig,planned,PCA,CH1,CH1,PCA9685 16-ch servo driver (HiLetgo)
+SERVO2_PWM,pwr_sig,planned,SERVO2,SIG,SIG,MG90S vent servo 2
+SERVO3_PWM,pwr_sig,planned,PCA,CH2,CH2,PCA9685 16-ch servo driver (HiLetgo)
+SERVO3_PWM,pwr_sig,planned,SERVO3,SIG,SIG,MG90S vent servo 3
+SERVO4_PWM,pwr_sig,planned,PCA,CH3,CH3,PCA9685 16-ch servo driver (HiLetgo)
+SERVO4_PWM,pwr_sig,planned,SERVO4,SIG,SIG,MG90S vent servo 4
+3V3_V,power,planned,S3V,3V3,3V3,ESP32-S3 N16R8 (visor)
+3V3_V,power,planned,OLED13,VCC,VCC,1.3 in OLED 128x64 (SH1106 likely)
+3V3_V,power,planned,VL53,VIN,VIN,VL53L1X distance (boop)
+3V3_V,power,planned,IMU1,VCC,VCC,LSM6DS3 IMU #1
+3V3_V,power,planned,IMU1,CS,CS,LSM6DS3 IMU #1
+3V3_V,power,planned,IMU1,SDO,SDO,LSM6DS3 IMU #1
+3V3_V,power,planned,BME_IN,VCC,VCC,GY-BME280 inside the head
+3V3_V,power,planned,BME_IN,CSB,CSB,GY-BME280 inside the head
+3V3_V,power,planned,PCA,VCC,VCC,PCA9685 16-ch servo driver (HiLetgo)
+3V3_V,power,planned,MIC1,VCC,VCC,MAX4466 analog mic
+3V3_V,power,planned,INMP_L,VDD,VDD,INMP441 I2S mic LEFT
+3V3_V,power,planned,INMP_R,VDD,VDD,INMP441 I2S mic RIGHT
+3V3_V,power,planned,INMP_R,LR,LR,INMP441 I2S mic RIGHT
+3V3_V,power,planned,DAC,VIN,VIN,I2S DAC (PCM5102A type) -> IEM jack
+3V3_V,power,planned,BOOP,VCC,VCC,Boop sensor (optional)
+3V3_V,power,planned,FACEBTN,A,A,Face button (optional)
+GND_V,gnd,planned,S3V,GND,GND,ESP32-S3 N16R8 (visor)
+GND_V,gnd,planned,PANEL1_IN,4,GND,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+GND_V,gnd,planned,PANEL1_IN,16,GND2,"HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)"
+GND_V,gnd,planned,PANEL1_PWR,2,GND,Panel 1 power in (5 V)
+GND_V,gnd,planned,PANEL2_PWR,2,GND,Panel 2 power in (5 V)
+GND_V,gnd,planned,OLED13,GND,GND,1.3 in OLED 128x64 (SH1106 likely)
+GND_V,gnd,planned,VL53,GND,GND,VL53L1X distance (boop)
+GND_V,gnd,planned,IMU1,GND,GND,LSM6DS3 IMU #1
+GND_V,gnd,planned,BME_IN,SDO,SDO,GY-BME280 inside the head
+GND_V,gnd,planned,BME_IN,GND,GND,GY-BME280 inside the head
+GND_V,gnd,planned,PCA,GND,GND,PCA9685 16-ch servo driver (HiLetgo)
+GND_V,gnd,planned,SERVO1,GND,GND,MG90S vent servo 1
+GND_V,gnd,planned,SERVO2,GND,GND,MG90S vent servo 2
+GND_V,gnd,planned,SERVO3,GND,GND,MG90S vent servo 3
+GND_V,gnd,planned,SERVO4,GND,GND,MG90S vent servo 4
+GND_V,gnd,planned,MIC1,GND,GND,MAX4466 analog mic
+GND_V,gnd,planned,INMP_L,GND,GND,INMP441 I2S mic LEFT
+GND_V,gnd,planned,INMP_L,LR,LR,INMP441 I2S mic LEFT
+GND_V,gnd,planned,INMP_R,GND,GND,INMP441 I2S mic RIGHT
+GND_V,gnd,planned,DAC,GND,GND,I2S DAC (PCM5102A type) -> IEM jack
+GND_V,gnd,planned,DAC,SCK,SCK,I2S DAC (PCM5102A type) -> IEM jack
+GND_V,gnd,planned,BOOP,GND,GND,Boop sensor (optional)
+GND_V,gnd,planned,FAN,1,GND,Noctua NF-A4x10 PWM 12 V fan
+GND_V,gnd,planned,CAP_A,N,N,1000 uF 16 V across panel 1 power
+GND_V,gnd,planned,CAP_B,N,N,1000 uF 16 V across panel 2 power
+GND_V,gnd,planned,CAP_S,N,N,470-1000 uF servo bus capacitor
+GND_V,gnd,planned,BUCK_A,OUTN,OUTN,Buck A EPICFLAME 12V to 5V (panel 1)
+GND_V,gnd,planned,BUCK_B,OUTN,OUTN,Buck B EPICFLAME 12V to 5V (panel 2)
+GND_V,gnd,planned,NULL1,OUTN,OUTN,"NULLLAB board 1 'logic hub' (3-20 V in, 5 V out)"
+GND_V,gnd,planned,NULL2,OUTN,OUTN,"NULLLAB board 2 'servo bus' (3-20 V in, 5 V out)"
+GND_V,gnd,planned,FUSEBLK,NEG,NEG,ELECTOP 6-way ATC/ATO fuse block (outside the head)
+GND_V,gnd,planned,BUCK_A,INN,INN,Buck A EPICFLAME 12V to 5V (panel 1)
+GND_V,gnd,planned,BUCK_B,INN,INN,Buck B EPICFLAME 12V to 5V (panel 2)
+GND_V,gnd,planned,NULL1,INN,INN,"NULLLAB board 1 'logic hub' (3-20 V in, 5 V out)"
+GND_V,gnd,planned,NULL2,INN,INN,"NULLLAB board 2 'servo bus' (3-20 V in, 5 V out)"
+GND_V,gnd,planned,WAGO,A,A,Wago 221 sub-junction (PD trigger ground)
+GND_V,gnd,planned,WAGO,B,B,Wago 221 sub-junction (PD trigger ground)
+GND_V,gnd,planned,PDT,GND,GND,"PD decoy trigger, DIP set to 12 V (plan 3 A / 36 W max)"
+12V_BUS,power,planned,PDT,V12,V12,"PD decoy trigger, DIP set to 12 V (plan 3 A / 36 W max)"
+12V_BUS,power,planned,FUSEBLK,IN,IN,ELECTOP 6-way ATC/ATO fuse block (outside the head)
+12V_F1,power,planned,FUSEBLK,F1,F1,ELECTOP 6-way ATC/ATO fuse block (outside the head)
+12V_F1,power,planned,BUCK_A,INP,INP,Buck A EPICFLAME 12V to 5V (panel 1)
+12V_F2,power,planned,FUSEBLK,F2,F2,ELECTOP 6-way ATC/ATO fuse block (outside the head)
+12V_F2,power,planned,BUCK_B,INP,INP,Buck B EPICFLAME 12V to 5V (panel 2)
+12V_F3,power,planned,FUSEBLK,F3,F3,ELECTOP 6-way ATC/ATO fuse block (outside the head)
+12V_F3,power,planned,NULL1,INP,INP,"NULLLAB board 1 'logic hub' (3-20 V in, 5 V out)"
+12V_F4,power,planned,FUSEBLK,F4,F4,ELECTOP 6-way ATC/ATO fuse block (outside the head)
+12V_F4,power,planned,FAN,2,+12V,Noctua NF-A4x10 PWM 12 V fan
+12V_F5,power,planned,FUSEBLK,F5,F5,ELECTOP 6-way ATC/ATO fuse block (outside the head)
+12V_F5,power,planned,NULL2,INP,INP,"NULLLAB board 2 'servo bus' (3-20 V in, 5 V out)"
+5V_PANEL1,power,temporary,BUCK_A,OUTP,OUTP,Buck A EPICFLAME 12V to 5V (panel 1)
+5V_PANEL1,power,temporary,CAP_A,P,P,1000 uF 16 V across panel 1 power
+5V_PANEL1,power,temporary,PANEL1_PWR,1,+5V,Panel 1 power in (5 V)
+5V_PANEL2,power,temporary,BUCK_B,OUTP,OUTP,Buck B EPICFLAME 12V to 5V (panel 2)
+5V_PANEL2,power,temporary,CAP_B,P,P,1000 uF 16 V across panel 2 power
+5V_PANEL2,power,temporary,PANEL2_PWR,1,+5V,Panel 2 power in (5 V)
+5V_LOGIC,power,planned,NULL1,OUTP,OUTP,"NULLLAB board 1 'logic hub' (3-20 V in, 5 V out)"
+5V_LOGIC,power,planned,S3V,5V,5V,ESP32-S3 N16R8 (visor)
+5V_SERVO,power,planned,NULL2,OUTP,OUTP,"NULLLAB board 2 'servo bus' (3-20 V in, 5 V out)"
+5V_SERVO,power,planned,CAP_S,P,P,470-1000 uF servo bus capacitor
+5V_SERVO,power,planned,PCA,VPLUS,VPLUS,PCA9685 16-ch servo driver (HiLetgo)
+5V_SERVO,power,planned,SERVO1,VPLUS,VPLUS,MG90S vent servo 1
+5V_SERVO,power,planned,SERVO2,VPLUS,VPLUS,MG90S vent servo 2
+5V_SERVO,power,planned,SERVO3,VPLUS,VPLUS,MG90S vent servo 3
+5V_SERVO,power,planned,SERVO4,VPLUS,VPLUS,MG90S vent servo 4
+USBC_IN,power,planned,BANK,USBC,USBC,USB-C PD power bank (carried on the body)
+USBC_IN,power,planned,PDT,USBC,USBC,"PD decoy trigger, DIP set to 12 V (plan 3 A / 36 W max)"
+KP_R1,sig,built,S3W,GPIO8,GPIO8,ESP32-S3 N16R8 (wrist)
+KP_R1,sig,built,KEYPAD,R1,R1,"4x4 button matrix (S1..S16, bare, no chip)"
+KP_R2,sig,built,S3W,GPIO9,GPIO9,ESP32-S3 N16R8 (wrist)
+KP_R2,sig,built,KEYPAD,R2,R2,"4x4 button matrix (S1..S16, bare, no chip)"
+KP_R3,sig,built,S3W,GPIO10,GPIO10,ESP32-S3 N16R8 (wrist)
+KP_R3,sig,built,KEYPAD,R3,R3,"4x4 button matrix (S1..S16, bare, no chip)"
+KP_R4,sig,built,S3W,GPIO17,GPIO17,ESP32-S3 N16R8 (wrist)
+KP_R4,sig,built,KEYPAD,R4,R4,"4x4 button matrix (S1..S16, bare, no chip)"
+KP_C1,sig,built,S3W,GPIO39,GPIO39,ESP32-S3 N16R8 (wrist)
+KP_C1,sig,built,KEYPAD,C1,C1,"4x4 button matrix (S1..S16, bare, no chip)"
+KP_C2,sig,built,S3W,GPIO40,GPIO40,ESP32-S3 N16R8 (wrist)
+KP_C2,sig,built,KEYPAD,C2,C2,"4x4 button matrix (S1..S16, bare, no chip)"
+KP_C3,sig,built,S3W,GPIO41,GPIO41,ESP32-S3 N16R8 (wrist)
+KP_C3,sig,built,KEYPAD,C3,C3,"4x4 button matrix (S1..S16, bare, no chip)"
+KP_C4,sig,built,S3W,GPIO42,GPIO42,ESP32-S3 N16R8 (wrist)
+KP_C4,sig,built,KEYPAD,C4,C4,"4x4 button matrix (S1..S16, bare, no chip)"
+ENC_CLK,sig,built,S3W,GPIO6,GPIO6,ESP32-S3 N16R8 (wrist)
+ENC_CLK,sig,built,ENC,CLK,CLK,KY-040 rotary encoder
+ENC_DT,sig,built,S3W,GPIO7,GPIO7,ESP32-S3 N16R8 (wrist)
+ENC_DT,sig,built,ENC,DT,DT,KY-040 rotary encoder
+ENC_SW,sig,built,S3W,GPIO15,GPIO15,ESP32-S3 N16R8 (wrist)
+ENC_SW,sig,built,ENC,SW,SW,KY-040 rotary encoder
+BUZZ_S,sig,built,S3W,GPIO16,GPIO16,ESP32-S3 N16R8 (wrist)
+BUZZ_S,sig,built,BUZZ,S,S,"Buzzer module (KY-006/KY-012 type, tested OK)"
+TM_CLK,sig,built,S3W,GPIO4,GPIO4,ESP32-S3 N16R8 (wrist)
+TM_CLK,sig,built,TM,CLK,CLK,TM1637 4-digit display
+TM_DIO,sig,built,S3W,GPIO5,GPIO5,ESP32-S3 N16R8 (wrist)
+TM_DIO,sig,built,TM,DIO,DIO,TM1637 4-digit display
+TOUCH_OUT,sig,built,S3W,GPIO21,GPIO21,ESP32-S3 N16R8 (wrist)
+TOUCH_OUT,sig,built,TP223,OUT,OUT,TP223 touch pad (toggles audiolink)
+MIC_W_OUT,sig,temporary,S3W,GPIO1,GPIO1,ESP32-S3 N16R8 (wrist)
+MIC_W_OUT,sig,temporary,MIC_W,OUT,OUT,"MAX4466 analog mic (TEMPORARY, left from the sensor node)"
+I2C_SDA_W,i2c,planned,S3W,GPIO11,GPIO11,ESP32-S3 N16R8 (wrist)
+I2C_SDA_W,i2c,planned,OLED_W,SDA,SDA,1.3 in OLED (TEMPORARY here; moves to the visor)
+I2C_SDA_W,i2c,planned,BME_OUT,SDA,SDA,GY-BME280 outside / remote air sample
+I2C_SDA_W,i2c,planned,IMU2,SDA,SDA,LSM6DS3 IMU #2 (wrist movement)
+I2C_SCL_W,i2c,planned,S3W,GPIO12,GPIO12,ESP32-S3 N16R8 (wrist)
+I2C_SCL_W,i2c,planned,OLED_W,SCL,SCL,1.3 in OLED (TEMPORARY here; moves to the visor)
+I2C_SCL_W,i2c,planned,BME_OUT,SCL,SCL,GY-BME280 outside / remote air sample
+I2C_SCL_W,i2c,planned,IMU2,SCL,SCL,LSM6DS3 IMU #2 (wrist movement)
+3V3_W,power,built,S3W,3V3,3V3,ESP32-S3 N16R8 (wrist)
+3V3_W,power,built,ENC,PLUS,PLUS,KY-040 rotary encoder
+3V3_W,power,built,TM,VCC,VCC,TM1637 4-digit display
+3V3_W,power,built,TP223,VCC,VCC,TP223 touch pad (toggles audiolink)
+3V3_W,power,built,OLED_W,VCC,VCC,1.3 in OLED (TEMPORARY here; moves to the visor)
+3V3_W,power,built,BME_OUT,VCC,VCC,GY-BME280 outside / remote air sample
+3V3_W,power,built,BME_OUT,CSB,CSB,GY-BME280 outside / remote air sample
+3V3_W,power,built,BME_OUT,SDO,SDO,GY-BME280 outside / remote air sample
+3V3_W,power,built,IMU2,VCC,VCC,LSM6DS3 IMU #2 (wrist movement)
+3V3_W,power,built,IMU2,CS,CS,LSM6DS3 IMU #2 (wrist movement)
+3V3_W,power,built,MIC_W,VCC,VCC,"MAX4466 analog mic (TEMPORARY, left from the sensor node)"
+GND_W,gnd,built,S3W,GND,GND,ESP32-S3 N16R8 (wrist)
+GND_W,gnd,built,ENC,GND,GND,KY-040 rotary encoder
+GND_W,gnd,built,BUZZ,MINUS,MINUS,"Buzzer module (KY-006/KY-012 type, tested OK)"
+GND_W,gnd,built,TM,GND,GND,TM1637 4-digit display
+GND_W,gnd,built,TP223,GND,GND,TP223 touch pad (toggles audiolink)
+GND_W,gnd,built,OLED_W,GND,GND,1.3 in OLED (TEMPORARY here; moves to the visor)
+GND_W,gnd,built,BME_OUT,GND,GND,GY-BME280 outside / remote air sample
+GND_W,gnd,built,IMU2,GND,GND,LSM6DS3 IMU #2 (wrist movement)
+GND_W,gnd,built,IMU2,SDO,SDO,LSM6DS3 IMU #2 (wrist movement)
+GND_W,gnd,built,MIC_W,GND,GND,"MAX4466 analog mic (TEMPORARY, left from the sensor node)"
+GND_W,gnd,built,USBW,GND,GND,"USB-C from the deck (bench); battery planned, not chosen"
+USBW_5V,power,built,USBW,VBUS,VBUS,"USB-C from the deck (bench); battery planned, not chosen"
+USBW_5V,power,built,S3W,5V,5V,ESP32-S3 N16R8 (wrist)

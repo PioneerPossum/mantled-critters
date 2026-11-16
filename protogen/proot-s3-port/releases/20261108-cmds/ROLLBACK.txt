@@ -1,0 +1,5 @@
+Visor (S3 #1) rollback to the command-capable build BEFORE audiolink (2026-11-08).
+Port: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_02:00:00:00:00:01-if00  (quit picocom first)
+cd ~/claude-projects/protogen/proot-s3-port/releases/20261108-cmds
+~/.local/bin/esptool --port <PORT> write-flash 0x0 proot-s3-wireless.ino.bootloader.bin 0x8000 proot-s3-wireless.ino.partitions.bin 0xe000 boot_app0.bin 0x10000 proot-s3-wireless.ino.bin
+(ESP32-S3 offsets: bootloader 0x0, partition table 0x8000, boot_app0 0xe000, app 0x10000.)

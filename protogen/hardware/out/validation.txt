@@ -1,0 +1,42 @@
+VALIDATION REPORT  rev 2026-11-09
+parts 42  nets 62  nodes 216
+
+errors: none
+
+WARNING S3V.GPIO3: JTAG-source strapping pin; works as the HUB75 'C' line (DMA library default)
+
+INFO    S3V: 24 GPIO used [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 21, 38, 39, 40, 41, 42]; free (broken out, not reserved): [47, 48]
+INFO    S3W: 18 GPIO used [1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16, 17, 21, 39, 40, 41, 42]; free (broken out, not reserved): [2, 13, 14, 38, 47, 48]
+INFO    I2C bus I2C_V: 0x29=VL53, 0x3C=OLED13, 0x40=PCA, 0x6B=IMU1, 0x76=BME_IN
+INFO    I2C bus I2C_W: 0x3C=OLED_W, 0x6A=IMU2, 0x77=BME_OUT
+
+cross-checks against the written pin tables: 29 run, 0 failed
+  PASS  HUB75 ribbon pin 1 R1 -> GPIO4 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 2 G1 -> GPIO5 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 3 B1 -> GPIO6 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 4 GND -> GND (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 5 R2 -> GPIO7 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 6 G2 -> GPIO15 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 7 B2 -> GPIO16 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 9 A -> GPIO18 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 10 B -> GPIO8 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 11 C -> GPIO3 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 12 D -> GPIO42 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 13 CLK -> GPIO41 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 14 LAT -> GPIO40 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 15 OE -> GPIO2 (visor-pin-table.md)
+  PASS  HUB75 ribbon pin 16 GND -> GND (visor-pin-table.md)
+  PASS  wrist KEYPAD.R1 -> GPIO8 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist KEYPAD.R2 -> GPIO9 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist KEYPAD.R3 -> GPIO10 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist KEYPAD.R4 -> GPIO17 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist KEYPAD.C1 -> GPIO39 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist KEYPAD.C2 -> GPIO40 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist KEYPAD.C3 -> GPIO41 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist KEYPAD.C4 -> GPIO42 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist ENC.CLK -> GPIO6 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist ENC.DT -> GPIO7 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist ENC.SW -> GPIO15 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist BUZZ.S -> GPIO16 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist TM.CLK -> GPIO4 (ui-board-pin-table.md 'AS WIRED')
+  PASS  wrist TM.DIO -> GPIO5 (ui-board-pin-table.md 'AS WIRED')

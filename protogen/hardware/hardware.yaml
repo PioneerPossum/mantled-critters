@@ -1,0 +1,163 @@
+# ============================================================================
+# Protogen visor hardware: SINGLE SOURCE OF TRUTH (generated artifacts: netlist, diagrams, WireViz, SkiDL)
+# Written 2026-11-09 from protogen/visor-pin-table.md, protogen/ui-board-pin-table.md,
+# protogen/visor-electronics-design-prompt.md and the memory notes (visor-wireless-sensor-stream.md).
+# status: built = physically wired and tested | planned = designed/ordered, not wired | temporary = wired now, going away | optional
+# ============================================================================
+meta:
+  title: Protogen visor wiring
+  revision: "2026-11-09"
+  owner: Gil
+  boards: "2 ESP32-S3 N16R8 boards joined by ESP-NOW (2.4 GHz, channel 1): visor controller S3V and wrist module S3W"
+
+boards:
+  S3V: {title: "Visor controller (S3 #1)", mcu: "ESP32-S3 N16R8", base: "Lonely Binary pluggable-terminal base", mac: "02:00:00:00:00:01", role: "drives the 2 HUB75 panels (128x32), sensors, OLED, mic pair, voice-amp DAC; receives commands over ESP-NOW"}
+  S3W: {title: "Wrist module (board #2)", mcu: "ESP32-S3 N16R8", base: "Lonely Binary green screw-terminal base (no GPIO18)", mac: "02:00:00:00:00:02", role: "control surface: keypad, encoder, 4-digit display, buzzer, touch pad, air/motion sensors; sends commands over ESP-NOW"}
+
+# GPIO that must not be used as plain I/O on an S3 N16R8 (checked by the generator)
+reserved:
+  0: "strapping (boot)"
+  19: "USB D- (native USB / serial and flashing)"
+  20: "USB D+ (native USB / serial and flashing)"
+  45: "strapping (VDD_SPI)"
+  46: "strapping (boot log)"
+caution:
+  3: "JTAG-source strapping pin; works as the HUB75 'C' line (DMA library default)"
+  48: "drives the onboard RGB LED on the Lonely Binary board: avoid as a scanned output"
+
+# ----------------------------------------------------------------------------
+# PARTS (every part, with its pin names). kind: mcu | module | connector | power | passive
+# ----------------------------------------------------------------------------
+parts:
+  # ---- MCUs ----
+  S3V: {kind: mcu, board: S3V, title: "ESP32-S3 N16R8 (visor)", pins: [3V3, 5V, GND, GPIO1, GPIO2, GPIO3, GPIO4, GPIO5, GPIO6, GPIO7, GPIO8, GPIO9, GPIO10, GPIO11, GPIO12, GPIO13, GPIO14, GPIO15, GPIO16, GPIO17, GPIO18, GPIO21, GPIO38, GPIO39, GPIO40, GPIO41, GPIO42, GPIO47, GPIO48]}
+  S3W: {kind: mcu, board: S3W, title: "ESP32-S3 N16R8 (wrist)", pins: [3V3, 5V, GND, GPIO1, GPIO2, GPIO4, GPIO5, GPIO6, GPIO7, GPIO8, GPIO9, GPIO10, GPIO11, GPIO12, GPIO13, GPIO14, GPIO15, GPIO16, GPIO17, GPIO21, GPIO38, GPIO39, GPIO40, GPIO41, GPIO42, GPIO47, GPIO48]}
+
+  # ---- Visor: LED matrix ----
+  PANEL1_IN: {kind: connector, board: S3V, st: built, title: "HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)", note: "Panel 1 OUT -> panel 2 IN is a straight-through 16-pin ribbon (not netlisted per pin). E (pin 8) is not connected: 1/16 scan.", pins: {1: R1, 2: G1, 3: B1, 4: GND, 5: R2, 6: G2, 7: B2, 8: E, 9: A, 10: B, 11: C, 12: D, 13: CLK, 14: LAT, 15: OE, 16: GND2}}
+  PANEL1_PWR: {kind: connector, board: S3V, title: "Panel 1 power in (5 V)", pins: {1: "+5V", 2: GND}}
+  PANEL2_PWR: {kind: connector, board: S3V, title: "Panel 2 power in (5 V)", pins: {1: "+5V", 2: GND}}
+
+  # ---- Visor: sensors on the I2C bus (GPIO11 SDA / GPIO12 SCL, 3.3 V) ----
+  OLED13: {kind: module, board: S3V, title: "1.3 in OLED 128x64 (SH1106 likely)", addr: "0x3C", bus: I2C_V, pins: [GND, VCC, SCL, SDA]}
+  VL53: {kind: module, board: S3V, title: "VL53L1X distance (boop)", addr: "0x29", bus: I2C_V, note: "INT optional; XSHUT left open. If INT is used, wire it to GPIO9 (boop) or GPIO47, NEVER GPIO39 (that is the DAC data line).", pins: [VIN, GND, SCL, SDA, INT]}
+  IMU1: {kind: module, board: S3V, title: "LSM6DS3 IMU #1", addr: "0x6B", bus: I2C_V, note: "CS tied to 3V3 selects I2C; SDO tied to 3V3 gives 0x6B", pins: [VCC, GND, SCL, SDA, CS, SDO]}
+  BME_IN: {kind: module, board: S3V, title: "GY-BME280 inside the head", addr: "0x76", bus: I2C_V, note: "CSB to 3V3 (I2C); SDO to GND = 0x76", pins: [VCC, GND, SCL, SDA, CSB, SDO]}
+  PCA: {kind: module, board: S3V, title: "PCA9685 16-ch servo driver (HiLetgo)", addr: "0x40", bus: I2C_V, note: "V+ max 6 V, fed from NULLLAB 2 at 5 V; never 12 V; do not connect the I2C header V+ to the S3", pins: [GND, VCC, SCL, SDA, VPLUS, CH0, CH1, CH2, CH3]}
+  SERVO1: {kind: module, board: S3V, title: "MG90S vent servo 1", pins: [GND, VPLUS, SIG]}
+  SERVO2: {kind: module, board: S3V, title: "MG90S vent servo 2", pins: [GND, VPLUS, SIG]}
+  SERVO3: {kind: module, board: S3V, title: "MG90S vent servo 3", pins: [GND, VPLUS, SIG]}
+  SERVO4: {kind: module, board: S3V, title: "MG90S vent servo 4", pins: [GND, VPLUS, SIG]}
+
+  # ---- Visor: audio, analog, inputs, fan ----
+  MIC1: {kind: module, board: S3V, title: "MAX4466 analog mic", pins: [VCC, GND, OUT]}
+  INMP_L: {kind: module, board: S3V, title: "INMP441 I2S mic LEFT", note: "L/R to GND = left slot; 3.3 V only", pins: [VDD, GND, SCK, WS, SD, LR]}
+  INMP_R: {kind: module, board: S3V, title: "INMP441 I2S mic RIGHT", note: "L/R to 3V3 = right slot; shares SCK/WS/SD with the left mic", pins: [VDD, GND, SCK, WS, SD, LR]}
+  DAC: {kind: module, board: S3V, title: "I2S DAC (PCM5102A type) -> IEM jack", note: "Not bought yet. Module jumpers vary: check VIN/SCK/XSMT pads. IEM output needs an attenuator and a software limiter.", pins: [VIN, GND, BCK, LRCK, DIN, SCK]}
+  BOOP: {kind: module, board: S3V, title: "Boop sensor (optional)", note: "GPIO9 is INPUT_PULLDOWN; HIGH = boop. VL53L1X INT could drive it instead.", pins: [VCC, GND, OUT]}
+  FACEBTN: {kind: module, board: S3V, title: "Face button (optional)", note: "Wired between 3V3 and GPIO10 (INPUT_PULLDOWN). NEVER to GND.", pins: [A, B]}
+  FAN: {kind: module, board: S3V, title: "Noctua NF-A4x10 PWM 12 V fan", note: "12 V, 25 kHz PWM, tach is open collector", pins: {1: GND, 2: "+12V", 3: TACH, 4: PWM}}
+
+  # ---- Visor: power chain ----
+  BANK: {kind: power, board: S3V, title: "USB-C PD power bank (carried on the body)", pins: [USBC]}
+  PDT: {kind: power, board: S3V, title: "PD decoy trigger, DIP set to 12 V (plan 3 A / 36 W max)", note: "Verify 12 V unloaded with a meter; set the DIP switch unplugged", pins: [USBC, V12, GND]}
+  FUSEBLK: {kind: power, board: S3V, title: "ELECTOP 6-way ATC/ATO fuse block (outside the head)", note: "F1 3A buck A | F2 3A buck B | F3 2A NULLLAB 1 | F4 1A fan | F5 2A NULLLAB 2 | F6 spare. Neg bus is the ground star point.", pins: [IN, F1, F2, F3, F4, F5, F6, NEG]}
+  WAGO: {kind: power, board: S3V, title: "Wago 221 sub-junction (PD trigger ground)", pins: [A, B]}
+  BUCK_A: {kind: power, board: S3V, title: "Buck A EPICFLAME 12V to 5V (panel 1)", pins: [INP, INN, OUTP, OUTN]}
+  BUCK_B: {kind: power, board: S3V, title: "Buck B EPICFLAME 12V to 5V (panel 2)", pins: [INP, INN, OUTP, OUTN]}
+  CAP_A: {kind: passive, board: S3V, title: "1000 uF 16 V across panel 1 power", pins: [P, N]}
+  CAP_B: {kind: passive, board: S3V, title: "1000 uF 16 V across panel 2 power", pins: [P, N]}
+  NULL1: {kind: power, board: S3V, title: "NULLLAB board 1 'logic hub' (3-20 V in, 5 V out)", pins: [INP, INN, OUTP, OUTN]}
+  NULL2: {kind: power, board: S3V, title: "NULLLAB board 2 'servo bus' (3-20 V in, 5 V out)", pins: [INP, INN, OUTP, OUTN]}
+  CAP_S: {kind: passive, board: S3V, title: "470-1000 uF servo bus capacitor", pins: [P, N]}
+
+  # ---- Wrist module ----
+  KEYPAD: {kind: module, board: S3W, title: "4x4 button matrix (S1..S16, bare, no chip)", note: "Rows driven low one at a time, columns read with pull-ups. S-number = (row-1)*4 + col.", pins: [R1, R2, R3, R4, C1, C2, C3, C4]}
+  ENC: {kind: module, board: S3W, title: "KY-040 rotary encoder", pins: [CLK, DT, SW, PLUS, GND]}
+  BUZZ: {kind: module, board: S3W, title: "Buzzer module (KY-006/KY-012 type, tested OK)", note: "Middle pin left open", pins: [MINUS, MID, S]}
+  TM: {kind: module, board: S3W, title: "TM1637 4-digit display", pins: [CLK, DIO, VCC, GND]}
+  TP223: {kind: module, board: S3W, title: "TP223 touch pad (toggles audiolink)", pins: [OUT, VCC, GND]}
+  OLED_W: {kind: module, board: S3W, st: temporary, title: "1.3 in OLED (TEMPORARY here; moves to the visor)", addr: "0x3C", bus: I2C_W, pins: [GND, VCC, SCL, SDA]}
+  BME_OUT: {kind: module, board: S3W, title: "GY-BME280 outside / remote air sample", addr: "0x77", bus: I2C_W, note: "CSB to 3V3; SDO to 3V3 = 0x77. Temperature, humidity, pressure only (no gas sensing).", pins: [VCC, GND, SCL, SDA, CSB, SDO]}
+  IMU2: {kind: module, board: S3W, title: "LSM6DS3 IMU #2 (wrist movement)", addr: "0x6A", bus: I2C_W, note: "Own bus; address 0x6A (SDO to GND) unless changed", pins: [VCC, GND, SCL, SDA, CS, SDO]}
+  MIC_W: {kind: module, board: S3W, title: "MAX4466 analog mic (TEMPORARY, left from the sensor node)", pins: [VCC, GND, OUT]}
+  USBW: {kind: power, board: S3W, title: "USB-C from the deck (bench); battery planned, not chosen", pins: [VBUS, GND]}
+
+# ----------------------------------------------------------------------------
+# NETS: name, class (power | gnd | sig | i2c | i2s | pwr_sig), status, nodes REF.PIN
+# ----------------------------------------------------------------------------
+nets:
+  # ==== VISOR: HUB75 matrix (BUILT, panels light) ====
+  - {n: HUB75_R1,  cls: sig, st: built, nodes: [S3V.GPIO4,  PANEL1_IN.1]}
+  - {n: HUB75_G1,  cls: sig, st: built, nodes: [S3V.GPIO5,  PANEL1_IN.2]}
+  - {n: HUB75_B1,  cls: sig, st: built, nodes: [S3V.GPIO6,  PANEL1_IN.3]}
+  - {n: HUB75_R2,  cls: sig, st: built, nodes: [S3V.GPIO7,  PANEL1_IN.5]}
+  - {n: HUB75_G2,  cls: sig, st: built, nodes: [S3V.GPIO15, PANEL1_IN.6]}
+  - {n: HUB75_B2,  cls: sig, st: built, nodes: [S3V.GPIO16, PANEL1_IN.7]}
+  - {n: HUB75_A,   cls: sig, st: built, nodes: [S3V.GPIO18, PANEL1_IN.9]}
+  - {n: HUB75_B,   cls: sig, st: built, nodes: [S3V.GPIO8,  PANEL1_IN.10]}
+  - {n: HUB75_C,   cls: sig, st: built, nodes: [S3V.GPIO3,  PANEL1_IN.11]}
+  - {n: HUB75_D,   cls: sig, st: built, nodes: [S3V.GPIO42, PANEL1_IN.12]}
+  - {n: HUB75_CLK, cls: sig, st: built, nodes: [S3V.GPIO41, PANEL1_IN.13]}
+  - {n: HUB75_LAT, cls: sig, st: built, nodes: [S3V.GPIO40, PANEL1_IN.14]}
+  - {n: HUB75_OE,  cls: sig, st: built, nodes: [S3V.GPIO2,  PANEL1_IN.15]}
+
+  # ==== VISOR: I2C bus ====
+  - {n: I2C_SDA_V, cls: i2c, st: planned, nodes: [S3V.GPIO11, OLED13.SDA, VL53.SDA, IMU1.SDA, BME_IN.SDA, PCA.SDA]}
+  - {n: I2C_SCL_V, cls: i2c, st: planned, nodes: [S3V.GPIO12, OLED13.SCL, VL53.SCL, IMU1.SCL, BME_IN.SCL, PCA.SCL]}
+
+  # ==== VISOR: analog, I2S audio, fan, inputs ====
+  - {n: MIC1_OUT,  cls: sig, st: planned, nodes: [S3V.GPIO1, MIC1.OUT]}
+  - {n: I2S_BCLK,  cls: i2s, st: planned, nodes: [S3V.GPIO17, INMP_L.SCK, INMP_R.SCK, DAC.BCK]}
+  - {n: I2S_WS,    cls: i2s, st: planned, nodes: [S3V.GPIO21, INMP_L.WS, INMP_R.WS, DAC.LRCK]}
+  - {n: I2S_SD_IN, cls: i2s, st: planned, nodes: [S3V.GPIO38, INMP_L.SD, INMP_R.SD]}
+  - {n: I2S_DOUT,  cls: i2s, st: planned, nodes: [S3V.GPIO39, DAC.DIN]}
+  - {n: FAN_PWM,   cls: sig, st: planned, nodes: [S3V.GPIO13, FAN.4]}
+  - {n: FAN_TACH,  cls: sig, st: planned, nodes: [S3V.GPIO14, FAN.3]}
+  - {n: BOOP_IN,   cls: sig, st: optional, nodes: [S3V.GPIO9, BOOP.OUT]}
+  - {n: FACEBTN_IN, cls: sig, st: optional, nodes: [S3V.GPIO10, FACEBTN.B]}
+  - {n: SERVO1_PWM, cls: pwr_sig, st: planned, nodes: [PCA.CH0, SERVO1.SIG]}
+  - {n: SERVO2_PWM, cls: pwr_sig, st: planned, nodes: [PCA.CH1, SERVO2.SIG]}
+  - {n: SERVO3_PWM, cls: pwr_sig, st: planned, nodes: [PCA.CH2, SERVO3.SIG]}
+  - {n: SERVO4_PWM, cls: pwr_sig, st: planned, nodes: [PCA.CH3, SERVO4.SIG]}
+
+  # ==== VISOR: rails ====
+  - {n: 3V3_V, cls: power, st: planned, nodes: [S3V.3V3, OLED13.VCC, VL53.VIN, IMU1.VCC, IMU1.CS, IMU1.SDO, BME_IN.VCC, BME_IN.CSB, PCA.VCC, MIC1.VCC, INMP_L.VDD, INMP_R.VDD, INMP_R.LR, DAC.VIN, BOOP.VCC, FACEBTN.A]}
+  - {n: GND_V, cls: gnd, st: planned, nodes: [S3V.GND, PANEL1_IN.4, PANEL1_IN.16, PANEL1_PWR.2, PANEL2_PWR.2, OLED13.GND, VL53.GND, IMU1.GND, BME_IN.SDO, BME_IN.GND, PCA.GND, SERVO1.GND, SERVO2.GND, SERVO3.GND, SERVO4.GND, MIC1.GND, INMP_L.GND, INMP_L.LR, INMP_R.GND, DAC.GND, DAC.SCK, BOOP.GND, FAN.1, CAP_A.N, CAP_B.N, CAP_S.N, BUCK_A.OUTN, BUCK_B.OUTN, NULL1.OUTN, NULL2.OUTN, FUSEBLK.NEG, BUCK_A.INN, BUCK_B.INN, NULL1.INN, NULL2.INN, WAGO.A, WAGO.B, PDT.GND]}
+  - {n: 12V_BUS, cls: power, st: planned, nodes: [PDT.V12, FUSEBLK.IN]}
+  - {n: 12V_F1, cls: power, st: planned, nodes: [FUSEBLK.F1, BUCK_A.INP]}
+  - {n: 12V_F2, cls: power, st: planned, nodes: [FUSEBLK.F2, BUCK_B.INP]}
+  - {n: 12V_F3, cls: power, st: planned, nodes: [FUSEBLK.F3, NULL1.INP]}
+  - {n: 12V_F4, cls: power, st: planned, nodes: [FUSEBLK.F4, FAN.2]}
+  - {n: 12V_F5, cls: power, st: planned, nodes: [FUSEBLK.F5, NULL2.INP]}
+  - {n: 5V_PANEL1, cls: power, st: temporary, nodes: [BUCK_A.OUTP, CAP_A.P, PANEL1_PWR.1]}
+  - {n: 5V_PANEL2, cls: power, st: temporary, nodes: [BUCK_B.OUTP, CAP_B.P, PANEL2_PWR.1]}
+  - {n: 5V_LOGIC, cls: power, st: planned, nodes: [NULL1.OUTP, S3V.5V]}
+  - {n: 5V_SERVO, cls: power, st: planned, nodes: [NULL2.OUTP, CAP_S.P, PCA.VPLUS, SERVO1.VPLUS, SERVO2.VPLUS, SERVO3.VPLUS, SERVO4.VPLUS]}
+  - {n: USBC_IN, cls: power, st: planned, nodes: [BANK.USBC, PDT.USBC]}
+
+  # ==== WRIST: control surface (BUILT and tested unless noted) ====
+  - {n: KP_R1, cls: sig, st: built, nodes: [S3W.GPIO8,  KEYPAD.R1]}
+  - {n: KP_R2, cls: sig, st: built, nodes: [S3W.GPIO9,  KEYPAD.R2]}
+  - {n: KP_R3, cls: sig, st: built, nodes: [S3W.GPIO10, KEYPAD.R3]}
+  - {n: KP_R4, cls: sig, st: built, nodes: [S3W.GPIO17, KEYPAD.R4]}
+  - {n: KP_C1, cls: sig, st: built, nodes: [S3W.GPIO39, KEYPAD.C1]}
+  - {n: KP_C2, cls: sig, st: built, nodes: [S3W.GPIO40, KEYPAD.C2]}
+  - {n: KP_C3, cls: sig, st: built, nodes: [S3W.GPIO41, KEYPAD.C3]}
+  - {n: KP_C4, cls: sig, st: built, nodes: [S3W.GPIO42, KEYPAD.C4]}
+  - {n: ENC_CLK, cls: sig, st: built, nodes: [S3W.GPIO6,  ENC.CLK]}
+  - {n: ENC_DT,  cls: sig, st: built, nodes: [S3W.GPIO7,  ENC.DT]}
+  - {n: ENC_SW,  cls: sig, st: built, nodes: [S3W.GPIO15, ENC.SW]}
+  - {n: BUZZ_S,  cls: sig, st: built, nodes: [S3W.GPIO16, BUZZ.S]}
+  - {n: TM_CLK,  cls: sig, st: built, nodes: [S3W.GPIO4, TM.CLK]}
+  - {n: TM_DIO,  cls: sig, st: built, nodes: [S3W.GPIO5, TM.DIO]}
+  - {n: TOUCH_OUT, cls: sig, st: built, nodes: [S3W.GPIO21, TP223.OUT]}
+  - {n: MIC_W_OUT, cls: sig, st: temporary, nodes: [S3W.GPIO1, MIC_W.OUT]}
+  - {n: I2C_SDA_W, cls: i2c, st: planned, nodes: [S3W.GPIO11, OLED_W.SDA, BME_OUT.SDA, IMU2.SDA]}
+  - {n: I2C_SCL_W, cls: i2c, st: planned, nodes: [S3W.GPIO12, OLED_W.SCL, BME_OUT.SCL, IMU2.SCL]}
+  - {n: 3V3_W, cls: power, st: built, nodes: [S3W.3V3, ENC.PLUS, TM.VCC, TP223.VCC, OLED_W.VCC, BME_OUT.VCC, BME_OUT.CSB, BME_OUT.SDO, IMU2.VCC, IMU2.CS, MIC_W.VCC]}
+  - {n: GND_W, cls: gnd, st: built, nodes: [S3W.GND, ENC.GND, BUZZ.MINUS, TM.GND, TP223.GND, OLED_W.GND, BME_OUT.GND, IMU2.GND, IMU2.SDO, MIC_W.GND, USBW.GND]}
+  - {n: USBW_5V, cls: power, st: built, nodes: [USBW.VBUS, S3W.5V]}
+
+# Pins deliberately left unconnected (the generator will not flag these)
+no_connect: [PANEL1_IN.8, BUZZ.MID, VL53.INT, FUSEBLK.F6]

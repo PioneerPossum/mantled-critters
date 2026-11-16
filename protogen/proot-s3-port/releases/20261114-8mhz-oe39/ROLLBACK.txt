@@ -1,0 +1,3 @@
+Visor (S3 #1) face firmware 2026-11-14: OE on GPIO39 (Gil's actual wiring), HUB75 pixel clock 8 MHz, clkphase=false. Includes the 2026-11-10 OLED status page code.
+Flash: ~/.local/bin/esptool --port /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_02:00:00:00:00:01-if00 write-flash 0x10000 proot-s3-wireless.ino.bin
+Older builds drive OE on GPIO2, which has no wire: they leave the panels DARK. Do not roll back to them unless the OE wire is moved to GPIO2.

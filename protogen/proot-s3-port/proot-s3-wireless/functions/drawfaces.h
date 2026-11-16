@@ -1,0 +1,290 @@
+/* ============================================================================
+ * DISPLAY & FACIAL RENDERING FUNCTIONS
+ * ============================================================================
+ * Defines hardware pin mappings, HUB75 DMA initialization, and rendering
+ * routines for RLE-encoded static sprites and multi-frame GIF animations.
+ * ============================================================================ */
+
+#pragma once
+
+// ============================================================================
+// DEPENDENCIES & SPRITE ASSETS
+// ============================================================================
+
+#include <Adafruit_GFX.h>
+#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include "facemodifiers.h"
+#include "oled_display.h"
+
+// Sprite & Animation Data
+#include "images.h"
+#include "animations.h"
+
+
+// ============================================================================
+// MATRIX DIMENSIONS & HARDWARE PIN DEFINITIONS
+// ============================================================================
+
+#define matrix_width  128
+#define matrix_height 32
+
+// HUB75 Pin Mapping (adjust to match your wiring)
+#define R1_PIN  4
+#define G1_PIN  5
+#define B1_PIN  6
+#define R2_PIN  7
+#define G2_PIN  15
+#define B2_PIN  16
+#define A_PIN   18
+#define B_PIN   8
+#define C_PIN   3
+#define D_PIN   42
+#define E_PIN   -1  // Required for 1/32 scan panels (e.g., 64x64px); set to an available pin like IO32 if needed
+#define CLK_PIN 41
+#define LAT_PIN 40
+#define OE_PIN  39  // 2026-11-14: Gil's OE wire is on the terminal labelled 39. Design files said GPIO2 (nothing wired there). GPIO39 was reserved for the DAC data line: re-plan that pin.
+
+
+// ============================================================================
+// DISPLAY & MODIFIER INSTANCES
+// ============================================================================
+
+// Pointer to the HUB75 DMA display driver
+MatrixPanel_I2S_DMA* display = nullptr;
+
+// Post-processing face effect modifiers
+AberrationModifier* abberation = new AberrationModifier();
+CRTModifier*        crt        = new CRTModifier();
+
+
+// ============================================================================
+// FUNCTION PROTOTYPES
+// ============================================================================
+
+void startUP();
+void drawFace(int offset_x, int offset_y, const uint32_t image[], bool overlay, bool mirror, FaceModifier* modifier = nullptr);
+void playAnimation(int offset_x, int offset_y, Animation animation, bool overlay, bool mirror);
+void holdFace(int time, int offset_x, int offset_y, const uint32_t image[], bool overlay, bool mirror, FaceModifier* modifier = nullptr);
+
+
+// ============================================================================
+// DISPLAY INITIALIZATION
+// ============================================================================
+
+/**
+ * Initializes Serial, configures the HUB75 I2S DMA matrix panel with double
+ * buffering, and displays the startup splash screen.
+ */
+void startUP() {
+  Serial.begin(115200);
+
+  // Pin mapping configuration struct
+  HUB75_I2S_CFG::i2s_pins _pins = {
+    R1_PIN, G1_PIN, B1_PIN,
+    R2_PIN, G2_PIN, B2_PIN,
+    A_PIN, B_PIN, C_PIN, D_PIN, E_PIN,
+    LAT_PIN, OE_PIN, CLK_PIN
+  };
+
+  // Matrix panel configuration (64x32 per panel, 2 panels chained)
+  HUB75_I2S_CFG mxconfig(
+    64,    // Width of a single panel
+    32,    // Height of a single panel
+    2,     // Number of panels chained
+    _pins  // Pin mapping struct
+  );
+
+  // Enable double buffering for tear-free frame updates
+  mxconfig.double_buff = true;
+
+  // Increase I2S DMA clock speed and target refresh rate to reduce camera shutter flicker
+  // 2026-11-14: 20 MHz + default clock phase gave wrong pixels in the edge columns over the hand-soldered wires.
+  // 8 MHz with clkphase = false tested clean in hub75-scope-test (keys 8 + k). Was: HZ_20M, clkphase default (true).
+  // 2026-11-14 late: with OE correctly on GPIO39, 20 MHz + clkphase = false tested clean (Gil); 20 MHz + default phase showed 4 slightly off pixels on white.
+  mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_20M;
+  mxconfig.clkphase = false;
+  mxconfig.min_refresh_rate = 120;
+
+  // Initialize display driver
+  display = new MatrixPanel_I2S_DMA(mxconfig);
+  display->begin();
+  display->setBrightness8(255); // DMA brightness scaling (0–255)
+
+  // Render boot splash screen
+  display->clearScreen();
+  display->setTextColor(display->color565(0, 0, 255));
+  display->setCursor(16, 0);
+  display->print("BOOTING UP....");
+
+  display->setTextColor(display->color565(255, 255, 255));
+  display->setCursor(16, 8);
+  display->print("KATXE PROTOGEN OS");
+
+  // Push back buffer to screen, hold for 3 seconds, then clear
+  display->flipDMABuffer();
+  delay(3000);
+  display->clearScreen();
+  display->flipDMABuffer();
+}
+
+
+// ============================================================================
+// SPRITE & ANIMATION RENDERING FUNCTIONS
+// ============================================================================
+
+/**
+ * Decodes and draws a static RLE-encoded RGB565 image (generated by `convimg.py`).
+ *
+ * @param offset_x  Horizontal pixel offset
+ * @param offset_y  Vertical pixel offset
+ * @param image     RLE-encoded sprite array:
+ *                  - Entries 0–2: width, height, and encoded data array size
+ *                  - Entries 3+:  bits 23–8 = 16-bit RGB565 color, bits 7–0 = repeat count
+ * @param overlay   If false, clears the frame buffer before drawing; if true, overlays on top
+ * @param mirror    If true, mirrors the image horizontally across the second panel
+ * @param modifier  Optional post-processing effect (e.g., aberration, CRT); nullptr for none
+ */
+void drawFace(int offset_x, int offset_y, const uint32_t image[], bool overlay, bool mirror, FaceModifier* modifier) {
+  // Guard against null sprite pointers
+  if (image == nullptr) {
+    return;
+  }
+
+  // Extract Image Metadata
+  int imgWidth  = image[0];
+  int imgHeight = image[1];
+  int arraySize = image[2];
+
+  // Clear the back buffer unless overlaying on top of existing content
+  if (!overlay) {
+    display->clearScreen();
+    oledClearBuffer();
+  }
+
+  // Decode Run-Length Encoded (RLE) RGB565 Pixel Data into a reusable static buffer
+  static uint16_t pixelBuffer[matrix_width * matrix_height];
+  uint32_t        pixcounter = 0;
+
+  for (int i = 0; i < arraySize; i++) {
+    uint32_t pix    = image[i + 3];
+    uint16_t rgb565 = (pix >> 8) & 0xFFFF;
+    uint8_t  count  = pix & 0xFF;
+
+    for (int j = 0; j <= count; j++) {
+      pixelBuffer[pixcounter++] = rgb565;
+    }
+  }
+
+  // Apply Modifier Setup (if active)
+  if (modifier) {
+    modifier->frameBegin(pixelBuffer, imgWidth, imgHeight);
+  }
+
+  // Render Pixels to Display Buffer
+  for (int i = 0; i < imgWidth * imgHeight; i++) {
+    int x = i % imgWidth;
+    int y = i / imgWidth;
+
+    uint16_t currpix = pixelBuffer[i];
+
+    // Process pixel through effect modifier if provided
+    if (modifier) {
+      currpix = modifier->process(i, pixelBuffer, imgWidth, imgHeight);
+    }
+
+    display->drawPixel(x + offset_x, y + offset_y, currpix);
+    oledDrawPixel(x + offset_x, y + offset_y, currpix);
+
+    if (mirror) {
+      display->drawPixel(offset_x + imgWidth * 2 - x - 1, y + offset_y, currpix);
+      oledDrawPixel(offset_x + imgWidth * 2 - x - 1, y + offset_y, currpix);
+    }
+  }
+
+  // Finalize Frame & Display
+  if (modifier) {
+    modifier->frameComplete(pixelBuffer, imgWidth, imgHeight);
+  }
+
+  display->flipDMABuffer();
+  oledCommitFrame();
+}
+
+/**
+ * Plays a multi-frame RLE-encoded animation (generated by `convgif.py`).
+ *
+ * The `Animation` struct (populated by `convgif.py`) contains:
+ * - `animation`:   Pointer to raw RLE animation data (first 4 entries are global metadata)
+ * - `numFrames`:   Total number of frames in the animation
+ * - `arrayLength`: Total length of the animation array
+ * - `Width`:       Frame width in pixels
+ * - `Height`:      Frame height in pixels
+ *
+ * @param offset_x   Horizontal pixel offset
+ * @param offset_y   Vertical pixel offset
+ * @param animation  Animation struct instance (named after the source `.gif` file)
+ * @param overlay    If false, clears the frame buffer before each frame; usually true unless frames are smaller
+ * @param mirror     If true, mirrors each frame horizontally across the second panel
+ */
+void playAnimation(int offset_x, int offset_y, Animation animation, bool overlay, bool mirror) {
+  const uint32_t* aniArray = animation.animation;
+  if (aniArray == nullptr) {
+    return;
+  }
+
+  uint32_t numFrames   = animation.numFrames;
+  uint32_t arrayLength = animation.arrayLength;
+  uint32_t Width       = animation.Width;
+  uint32_t Height      = animation.Height;
+
+  // Tracks the starting index of the current frame in `aniArray`
+  // (Starts at index 4 because the first 4 entries hold global metadata)
+  uint32_t offset = 4;
+
+  for (int i = 0; i < numFrames; i++) {
+    // Clear the back buffer if overlay is disabled
+    if (!overlay) {
+      display->clearScreen();
+      oledClearBuffer();
+    }
+
+    // Unpack Frame Metadata
+    uint32_t frameMetaData = aniArray[offset];
+    uint32_t frameDataSize = (frameMetaData >> 20 & 0xFFF);
+    uint32_t frameDuration = (frameMetaData & 0xFFFFF);
+
+    // Decode & Draw Frame RLE Chunks
+    int pixel_index = 0;
+    for (int j = 0; j < frameDataSize; j++) {
+      // Select current RLE chunk (offset + 1 skips the frame metadata word)
+      uint32_t pix = aniArray[j + offset + 1];
+
+      // Unpack 16-bit RGB565 color (bits 23–8) and repeat count (bits 7–0)
+      uint16_t rgb565 = (pix >> 8) & 0xFFFF;
+      uint8_t  count  = pix & 0xFF;
+
+      // Draw the pixel `count + 1` times sequentially
+      for (int k = 0; k <= count; k++) {
+        // Modulo binds x to [0, Width - 1]; integer division advances y every `Width` pixels
+        int x = pixel_index % Width;
+        int y = pixel_index / Width;
+        pixel_index++;
+
+        display->drawPixel(x + offset_x, y + offset_y, rgb565);
+        oledDrawPixel(x + offset_x, y + offset_y, rgb565);
+
+        if (mirror) {
+          display->drawPixel(offset_x + Width * 2 - x - 1, y + offset_y, rgb565);
+          oledDrawPixel(offset_x + Width * 2 - x - 1, y + offset_y, rgb565);
+        }
+      }
+    }
+
+    // Advance to Next Frame & Display
+    offset += frameDataSize + 1;
+
+    display->flipDMABuffer();
+    oledCommitFrame();
+    delay(frameDuration);
+  }
+}

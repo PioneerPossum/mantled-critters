@@ -1,0 +1,4 @@
+Visor (S3 #1) face firmware with HUB75 pixel clock 8 MHz + clkphase=false (2026-11-14). Also first flashed build with the OLED status page code of 2026-11-10.
+Rollback to the previous audiolink build (20 MHz, default phase):
+~/.local/bin/esptool --port /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_02:00:00:00:00:01-if00 write-flash 0x10000 ~/esp32-tools/backups/app-020000000001-20261114-audiolink.bin
+Source backup of the one changed file: proot-s3-wireless/functions/drawfaces.h.bak-20261114

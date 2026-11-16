@@ -1,0 +1,1225 @@
+{
+ "meta": {
+  "title": "Protogen visor wiring",
+  "revision": "2026-11-09",
+  "owner": "Gil",
+  "boards": "2 ESP32-S3 N16R8 boards joined by ESP-NOW (2.4 GHz, channel 1): visor controller S3V and wrist module S3W"
+ },
+ "boards": {
+  "S3V": {
+   "title": "Visor controller (S3 #1)",
+   "mcu": "ESP32-S3 N16R8",
+   "base": "Lonely Binary pluggable-terminal base",
+   "mac": "02:00:00:00:00:01",
+   "role": "drives the 2 HUB75 panels (128x32), sensors, OLED, mic pair, voice-amp DAC; receives commands over ESP-NOW"
+  },
+  "S3W": {
+   "title": "Wrist module (board #2)",
+   "mcu": "ESP32-S3 N16R8",
+   "base": "Lonely Binary green screw-terminal base (no GPIO18)",
+   "mac": "02:00:00:00:00:02",
+   "role": "control surface: keypad, encoder, 4-digit display, buzzer, touch pad, air/motion sensors; sends commands over ESP-NOW"
+  }
+ },
+ "parts": {
+  "S3V": {
+   "title": "ESP32-S3 N16R8 (visor)",
+   "kind": "mcu",
+   "board": "S3V",
+   "pins": {
+    "3V3": "3V3",
+    "5V": "5V",
+    "GND": "GND",
+    "GPIO1": "GPIO1",
+    "GPIO2": "GPIO2",
+    "GPIO3": "GPIO3",
+    "GPIO4": "GPIO4",
+    "GPIO5": "GPIO5",
+    "GPIO6": "GPIO6",
+    "GPIO7": "GPIO7",
+    "GPIO8": "GPIO8",
+    "GPIO9": "GPIO9",
+    "GPIO10": "GPIO10",
+    "GPIO11": "GPIO11",
+    "GPIO12": "GPIO12",
+    "GPIO13": "GPIO13",
+    "GPIO14": "GPIO14",
+    "GPIO15": "GPIO15",
+    "GPIO16": "GPIO16",
+    "GPIO17": "GPIO17",
+    "GPIO18": "GPIO18",
+    "GPIO21": "GPIO21",
+    "GPIO38": "GPIO38",
+    "GPIO39": "GPIO39",
+    "GPIO40": "GPIO40",
+    "GPIO41": "GPIO41",
+    "GPIO42": "GPIO42",
+    "GPIO47": "GPIO47",
+    "GPIO48": "GPIO48"
+   }
+  },
+  "S3W": {
+   "title": "ESP32-S3 N16R8 (wrist)",
+   "kind": "mcu",
+   "board": "S3W",
+   "pins": {
+    "3V3": "3V3",
+    "5V": "5V",
+    "GND": "GND",
+    "GPIO1": "GPIO1",
+    "GPIO2": "GPIO2",
+    "GPIO4": "GPIO4",
+    "GPIO5": "GPIO5",
+    "GPIO6": "GPIO6",
+    "GPIO7": "GPIO7",
+    "GPIO8": "GPIO8",
+    "GPIO9": "GPIO9",
+    "GPIO10": "GPIO10",
+    "GPIO11": "GPIO11",
+    "GPIO12": "GPIO12",
+    "GPIO13": "GPIO13",
+    "GPIO14": "GPIO14",
+    "GPIO15": "GPIO15",
+    "GPIO16": "GPIO16",
+    "GPIO17": "GPIO17",
+    "GPIO21": "GPIO21",
+    "GPIO38": "GPIO38",
+    "GPIO39": "GPIO39",
+    "GPIO40": "GPIO40",
+    "GPIO41": "GPIO41",
+    "GPIO42": "GPIO42",
+    "GPIO47": "GPIO47",
+    "GPIO48": "GPIO48"
+   }
+  },
+  "PANEL1_IN": {
+   "title": "HUB75 panel 1 IN (16-pin IDC, pin 1 = red stripe)",
+   "kind": "connector",
+   "board": "S3V",
+   "pins": {
+    "1": "R1",
+    "2": "G1",
+    "3": "B1",
+    "4": "GND",
+    "5": "R2",
+    "6": "G2",
+    "7": "B2",
+    "8": "E",
+    "9": "A",
+    "10": "B",
+    "11": "C",
+    "12": "D",
+    "13": "CLK",
+    "14": "LAT",
+    "15": "OE",
+    "16": "GND2"
+   },
+   "note": "Panel 1 OUT -> panel 2 IN is a straight-through 16-pin ribbon (not netlisted per pin). E (pin 8) is not connected: 1/16 scan."
+  },
+  "PANEL1_PWR": {
+   "title": "Panel 1 power in (5 V)",
+   "kind": "connector",
+   "board": "S3V",
+   "pins": {
+    "1": "+5V",
+    "2": "GND"
+   }
+  },
+  "PANEL2_PWR": {
+   "title": "Panel 2 power in (5 V)",
+   "kind": "connector",
+   "board": "S3V",
+   "pins": {
+    "1": "+5V",
+    "2": "GND"
+   }
+  },
+  "OLED13": {
+   "title": "1.3 in OLED 128x64 (SH1106 likely)",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "GND": "GND",
+    "VCC": "VCC",
+    "SCL": "SCL",
+    "SDA": "SDA"
+   },
+   "addr": "0x3C"
+  },
+  "VL53": {
+   "title": "VL53L1X distance (boop)",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "VIN": "VIN",
+    "GND": "GND",
+    "SCL": "SCL",
+    "SDA": "SDA",
+    "INT": "INT"
+   },
+   "addr": "0x29",
+   "note": "INT optional; XSHUT left open. If INT is used, wire it to GPIO9 (boop) or GPIO47, NEVER GPIO39 (that is the DAC data line)."
+  },
+  "IMU1": {
+   "title": "LSM6DS3 IMU #1",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "VCC": "VCC",
+    "GND": "GND",
+    "SCL": "SCL",
+    "SDA": "SDA",
+    "CS": "CS",
+    "SDO": "SDO"
+   },
+   "addr": "0x6B",
+   "note": "CS tied to 3V3 selects I2C; SDO tied to 3V3 gives 0x6B"
+  },
+  "BME_IN": {
+   "title": "GY-BME280 inside the head",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "VCC": "VCC",
+    "GND": "GND",
+    "SCL": "SCL",
+    "SDA": "SDA",
+    "CSB": "CSB",
+    "SDO": "SDO"
+   },
+   "addr": "0x76",
+   "note": "CSB to 3V3 (I2C); SDO to GND = 0x76"
+  },
+  "PCA": {
+   "title": "PCA9685 16-ch servo driver (HiLetgo)",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "GND": "GND",
+    "VCC": "VCC",
+    "SCL": "SCL",
+    "SDA": "SDA",
+    "VPLUS": "VPLUS",
+    "CH0": "CH0",
+    "CH1": "CH1",
+    "CH2": "CH2",
+    "CH3": "CH3"
+   },
+   "addr": "0x40",
+   "note": "V+ max 6 V, fed from NULLLAB 2 at 5 V; never 12 V; do not connect the I2C header V+ to the S3"
+  },
+  "SERVO1": {
+   "title": "MG90S vent servo 1",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "GND": "GND",
+    "VPLUS": "VPLUS",
+    "SIG": "SIG"
+   }
+  },
+  "SERVO2": {
+   "title": "MG90S vent servo 2",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "GND": "GND",
+    "VPLUS": "VPLUS",
+    "SIG": "SIG"
+   }
+  },
+  "SERVO3": {
+   "title": "MG90S vent servo 3",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "GND": "GND",
+    "VPLUS": "VPLUS",
+    "SIG": "SIG"
+   }
+  },
+  "SERVO4": {
+   "title": "MG90S vent servo 4",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "GND": "GND",
+    "VPLUS": "VPLUS",
+    "SIG": "SIG"
+   }
+  },
+  "MIC1": {
+   "title": "MAX4466 analog mic",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "VCC": "VCC",
+    "GND": "GND",
+    "OUT": "OUT"
+   }
+  },
+  "INMP_L": {
+   "title": "INMP441 I2S mic LEFT",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "VDD": "VDD",
+    "GND": "GND",
+    "SCK": "SCK",
+    "WS": "WS",
+    "SD": "SD",
+    "LR": "LR"
+   },
+   "note": "L/R to GND = left slot; 3.3 V only"
+  },
+  "INMP_R": {
+   "title": "INMP441 I2S mic RIGHT",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "VDD": "VDD",
+    "GND": "GND",
+    "SCK": "SCK",
+    "WS": "WS",
+    "SD": "SD",
+    "LR": "LR"
+   },
+   "note": "L/R to 3V3 = right slot; shares SCK/WS/SD with the left mic"
+  },
+  "DAC": {
+   "title": "I2S DAC (PCM5102A type) -> IEM jack",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "VIN": "VIN",
+    "GND": "GND",
+    "BCK": "BCK",
+    "LRCK": "LRCK",
+    "DIN": "DIN",
+    "SCK": "SCK"
+   },
+   "note": "Not bought yet. Module jumpers vary: check VIN/SCK/XSMT pads. IEM output needs an attenuator and a software limiter."
+  },
+  "BOOP": {
+   "title": "Boop sensor (optional)",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "VCC": "VCC",
+    "GND": "GND",
+    "OUT": "OUT"
+   },
+   "note": "GPIO9 is INPUT_PULLDOWN; HIGH = boop. VL53L1X INT could drive it instead."
+  },
+  "FACEBTN": {
+   "title": "Face button (optional)",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "A": "A",
+    "B": "B"
+   },
+   "note": "Wired between 3V3 and GPIO10 (INPUT_PULLDOWN). NEVER to GND."
+  },
+  "FAN": {
+   "title": "Noctua NF-A4x10 PWM 12 V fan",
+   "kind": "module",
+   "board": "S3V",
+   "pins": {
+    "1": "GND",
+    "2": "+12V",
+    "3": "TACH",
+    "4": "PWM"
+   },
+   "note": "12 V, 25 kHz PWM, tach is open collector"
+  },
+  "BANK": {
+   "title": "USB-C PD power bank (carried on the body)",
+   "kind": "power",
+   "board": "S3V",
+   "pins": {
+    "USBC": "USBC"
+   }
+  },
+  "PDT": {
+   "title": "PD decoy trigger, DIP set to 12 V (plan 3 A / 36 W max)",
+   "kind": "power",
+   "board": "S3V",
+   "pins": {
+    "USBC": "USBC",
+    "V12": "V12",
+    "GND": "GND"
+   },
+   "note": "Verify 12 V unloaded with a meter; set the DIP switch unplugged"
+  },
+  "FUSEBLK": {
+   "title": "ELECTOP 6-way ATC/ATO fuse block (outside the head)",
+   "kind": "power",
+   "board": "S3V",
+   "pins": {
+    "IN": "IN",
+    "F1": "F1",
+    "F2": "F2",
+    "F3": "F3",
+    "F4": "F4",
+    "F5": "F5",
+    "F6": "F6",
+    "NEG": "NEG"
+   },
+   "note": "F1 3A buck A | F2 3A buck B | F3 2A NULLLAB 1 | F4 1A fan | F5 2A NULLLAB 2 | F6 spare. Neg bus is the ground star point."
+  },
+  "WAGO": {
+   "title": "Wago 221 sub-junction (PD trigger ground)",
+   "kind": "power",
+   "board": "S3V",
+   "pins": {
+    "A": "A",
+    "B": "B"
+   }
+  },
+  "BUCK_A": {
+   "title": "Buck A EPICFLAME 12V to 5V (panel 1)",
+   "kind": "power",
+   "board": "S3V",
+   "pins": {
+    "INP": "INP",
+    "INN": "INN",
+    "OUTP": "OUTP",
+    "OUTN": "OUTN"
+   }
+  },
+  "BUCK_B": {
+   "title": "Buck B EPICFLAME 12V to 5V (panel 2)",
+   "kind": "power",
+   "board": "S3V",
+   "pins": {
+    "INP": "INP",
+    "INN": "INN",
+    "OUTP": "OUTP",
+    "OUTN": "OUTN"
+   }
+  },
+  "CAP_A": {
+   "title": "1000 uF 16 V across panel 1 power",
+   "kind": "passive",
+   "board": "S3V",
+   "pins": {
+    "P": "P",
+    "N": "N"
+   }
+  },
+  "CAP_B": {
+   "title": "1000 uF 16 V across panel 2 power",
+   "kind": "passive",
+   "board": "S3V",
+   "pins": {
+    "P": "P",
+    "N": "N"
+   }
+  },
+  "NULL1": {
+   "title": "NULLLAB board 1 'logic hub' (3-20 V in, 5 V out)",
+   "kind": "power",
+   "board": "S3V",
+   "pins": {
+    "INP": "INP",
+    "INN": "INN",
+    "OUTP": "OUTP",
+    "OUTN": "OUTN"
+   }
+  },
+  "NULL2": {
+   "title": "NULLLAB board 2 'servo bus' (3-20 V in, 5 V out)",
+   "kind": "power",
+   "board": "S3V",
+   "pins": {
+    "INP": "INP",
+    "INN": "INN",
+    "OUTP": "OUTP",
+    "OUTN": "OUTN"
+   }
+  },
+  "CAP_S": {
+   "title": "470-1000 uF servo bus capacitor",
+   "kind": "passive",
+   "board": "S3V",
+   "pins": {
+    "P": "P",
+    "N": "N"
+   }
+  },
+  "KEYPAD": {
+   "title": "4x4 button matrix (S1..S16, bare, no chip)",
+   "kind": "module",
+   "board": "S3W",
+   "pins": {
+    "R1": "R1",
+    "R2": "R2",
+    "R3": "R3",
+    "R4": "R4",
+    "C1": "C1",
+    "C2": "C2",
+    "C3": "C3",
+    "C4": "C4"
+   },
+   "note": "Rows driven low one at a time, columns read with pull-ups. S-number = (row-1)*4 + col."
+  },
+  "ENC": {
+   "title": "KY-040 rotary encoder",
+   "kind": "module",
+   "board": "S3W",
+   "pins": {
+    "CLK": "CLK",
+    "DT": "DT",
+    "SW": "SW",
+    "PLUS": "PLUS",
+    "GND": "GND"
+   }
+  },
+  "BUZZ": {
+   "title": "Buzzer module (KY-006/KY-012 type, tested OK)",
+   "kind": "module",
+   "board": "S3W",
+   "pins": {
+    "MINUS": "MINUS",
+    "MID": "MID",
+    "S": "S"
+   },
+   "note": "Middle pin left open"
+  },
+  "TM": {
+   "title": "TM1637 4-digit display",
+   "kind": "module",
+   "board": "S3W",
+   "pins": {
+    "CLK": "CLK",
+    "DIO": "DIO",
+    "VCC": "VCC",
+    "GND": "GND"
+   }
+  },
+  "TP223": {
+   "title": "TP223 touch pad (toggles audiolink)",
+   "kind": "module",
+   "board": "S3W",
+   "pins": {
+    "OUT": "OUT",
+    "VCC": "VCC",
+    "GND": "GND"
+   }
+  },
+  "OLED_W": {
+   "title": "1.3 in OLED (TEMPORARY here; moves to the visor)",
+   "kind": "module",
+   "board": "S3W",
+   "pins": {
+    "GND": "GND",
+    "VCC": "VCC",
+    "SCL": "SCL",
+    "SDA": "SDA"
+   },
+   "addr": "0x3C"
+  },
+  "BME_OUT": {
+   "title": "GY-BME280 outside / remote air sample",
+   "kind": "module",
+   "board": "S3W",
+   "pins": {
+    "VCC": "VCC",
+    "GND": "GND",
+    "SCL": "SCL",
+    "SDA": "SDA",
+    "CSB": "CSB",
+    "SDO": "SDO"
+   },
+   "addr": "0x77",
+   "note": "CSB to 3V3; SDO to 3V3 = 0x77. Temperature, humidity, pressure only (no gas sensing)."
+  },
+  "IMU2": {
+   "title": "LSM6DS3 IMU #2 (wrist movement)",
+   "kind": "module",
+   "board": "S3W",
+   "pins": {
+    "VCC": "VCC",
+    "GND": "GND",
+    "SCL": "SCL",
+    "SDA": "SDA",
+    "CS": "CS",
+    "SDO": "SDO"
+   },
+   "addr": "0x6A",
+   "note": "Own bus; address 0x6A (SDO to GND) unless changed"
+  },
+  "MIC_W": {
+   "title": "MAX4466 analog mic (TEMPORARY, left from the sensor node)",
+   "kind": "module",
+   "board": "S3W",
+   "pins": {
+    "VCC": "VCC",
+    "GND": "GND",
+    "OUT": "OUT"
+   }
+  },
+  "USBW": {
+   "title": "USB-C from the deck (bench); battery planned, not chosen",
+   "kind": "power",
+   "board": "S3W",
+   "pins": {
+    "VBUS": "VBUS",
+    "GND": "GND"
+   }
+  }
+ },
+ "nets": [
+  {
+   "name": "HUB75_R1",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO4",
+    "PANEL1_IN.1"
+   ]
+  },
+  {
+   "name": "HUB75_G1",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO5",
+    "PANEL1_IN.2"
+   ]
+  },
+  {
+   "name": "HUB75_B1",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO6",
+    "PANEL1_IN.3"
+   ]
+  },
+  {
+   "name": "HUB75_R2",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO7",
+    "PANEL1_IN.5"
+   ]
+  },
+  {
+   "name": "HUB75_G2",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO15",
+    "PANEL1_IN.6"
+   ]
+  },
+  {
+   "name": "HUB75_B2",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO16",
+    "PANEL1_IN.7"
+   ]
+  },
+  {
+   "name": "HUB75_A",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO18",
+    "PANEL1_IN.9"
+   ]
+  },
+  {
+   "name": "HUB75_B",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO8",
+    "PANEL1_IN.10"
+   ]
+  },
+  {
+   "name": "HUB75_C",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO3",
+    "PANEL1_IN.11"
+   ]
+  },
+  {
+   "name": "HUB75_D",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO42",
+    "PANEL1_IN.12"
+   ]
+  },
+  {
+   "name": "HUB75_CLK",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO41",
+    "PANEL1_IN.13"
+   ]
+  },
+  {
+   "name": "HUB75_LAT",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO40",
+    "PANEL1_IN.14"
+   ]
+  },
+  {
+   "name": "HUB75_OE",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3V.GPIO2",
+    "PANEL1_IN.15"
+   ]
+  },
+  {
+   "name": "I2C_SDA_V",
+   "class": "i2c",
+   "status": "planned",
+   "nodes": [
+    "S3V.GPIO11",
+    "OLED13.SDA",
+    "VL53.SDA",
+    "IMU1.SDA",
+    "BME_IN.SDA",
+    "PCA.SDA"
+   ]
+  },
+  {
+   "name": "I2C_SCL_V",
+   "class": "i2c",
+   "status": "planned",
+   "nodes": [
+    "S3V.GPIO12",
+    "OLED13.SCL",
+    "VL53.SCL",
+    "IMU1.SCL",
+    "BME_IN.SCL",
+    "PCA.SCL"
+   ]
+  },
+  {
+   "name": "MIC1_OUT",
+   "class": "sig",
+   "status": "planned",
+   "nodes": [
+    "S3V.GPIO1",
+    "MIC1.OUT"
+   ]
+  },
+  {
+   "name": "I2S_BCLK",
+   "class": "i2s",
+   "status": "planned",
+   "nodes": [
+    "S3V.GPIO17",
+    "INMP_L.SCK",
+    "INMP_R.SCK",
+    "DAC.BCK"
+   ]
+  },
+  {
+   "name": "I2S_WS",
+   "class": "i2s",
+   "status": "planned",
+   "nodes": [
+    "S3V.GPIO21",
+    "INMP_L.WS",
+    "INMP_R.WS",
+    "DAC.LRCK"
+   ]
+  },
+  {
+   "name": "I2S_SD_IN",
+   "class": "i2s",
+   "status": "planned",
+   "nodes": [
+    "S3V.GPIO38",
+    "INMP_L.SD",
+    "INMP_R.SD"
+   ]
+  },
+  {
+   "name": "I2S_DOUT",
+   "class": "i2s",
+   "status": "planned",
+   "nodes": [
+    "S3V.GPIO39",
+    "DAC.DIN"
+   ]
+  },
+  {
+   "name": "FAN_PWM",
+   "class": "sig",
+   "status": "planned",
+   "nodes": [
+    "S3V.GPIO13",
+    "FAN.4"
+   ]
+  },
+  {
+   "name": "FAN_TACH",
+   "class": "sig",
+   "status": "planned",
+   "nodes": [
+    "S3V.GPIO14",
+    "FAN.3"
+   ]
+  },
+  {
+   "name": "BOOP_IN",
+   "class": "sig",
+   "status": "optional",
+   "nodes": [
+    "S3V.GPIO9",
+    "BOOP.OUT"
+   ]
+  },
+  {
+   "name": "FACEBTN_IN",
+   "class": "sig",
+   "status": "optional",
+   "nodes": [
+    "S3V.GPIO10",
+    "FACEBTN.B"
+   ]
+  },
+  {
+   "name": "SERVO1_PWM",
+   "class": "pwr_sig",
+   "status": "planned",
+   "nodes": [
+    "PCA.CH0",
+    "SERVO1.SIG"
+   ]
+  },
+  {
+   "name": "SERVO2_PWM",
+   "class": "pwr_sig",
+   "status": "planned",
+   "nodes": [
+    "PCA.CH1",
+    "SERVO2.SIG"
+   ]
+  },
+  {
+   "name": "SERVO3_PWM",
+   "class": "pwr_sig",
+   "status": "planned",
+   "nodes": [
+    "PCA.CH2",
+    "SERVO3.SIG"
+   ]
+  },
+  {
+   "name": "SERVO4_PWM",
+   "class": "pwr_sig",
+   "status": "planned",
+   "nodes": [
+    "PCA.CH3",
+    "SERVO4.SIG"
+   ]
+  },
+  {
+   "name": "3V3_V",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "S3V.3V3",
+    "OLED13.VCC",
+    "VL53.VIN",
+    "IMU1.VCC",
+    "IMU1.CS",
+    "IMU1.SDO",
+    "BME_IN.VCC",
+    "BME_IN.CSB",
+    "PCA.VCC",
+    "MIC1.VCC",
+    "INMP_L.VDD",
+    "INMP_R.VDD",
+    "INMP_R.LR",
+    "DAC.VIN",
+    "BOOP.VCC",
+    "FACEBTN.A"
+   ]
+  },
+  {
+   "name": "GND_V",
+   "class": "gnd",
+   "status": "planned",
+   "nodes": [
+    "S3V.GND",
+    "PANEL1_IN.4",
+    "PANEL1_IN.16",
+    "PANEL1_PWR.2",
+    "PANEL2_PWR.2",
+    "OLED13.GND",
+    "VL53.GND",
+    "IMU1.GND",
+    "BME_IN.SDO",
+    "BME_IN.GND",
+    "PCA.GND",
+    "SERVO1.GND",
+    "SERVO2.GND",
+    "SERVO3.GND",
+    "SERVO4.GND",
+    "MIC1.GND",
+    "INMP_L.GND",
+    "INMP_L.LR",
+    "INMP_R.GND",
+    "DAC.GND",
+    "DAC.SCK",
+    "BOOP.GND",
+    "FAN.1",
+    "CAP_A.N",
+    "CAP_B.N",
+    "CAP_S.N",
+    "BUCK_A.OUTN",
+    "BUCK_B.OUTN",
+    "NULL1.OUTN",
+    "NULL2.OUTN",
+    "FUSEBLK.NEG",
+    "BUCK_A.INN",
+    "BUCK_B.INN",
+    "NULL1.INN",
+    "NULL2.INN",
+    "WAGO.A",
+    "WAGO.B",
+    "PDT.GND"
+   ]
+  },
+  {
+   "name": "12V_BUS",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "PDT.V12",
+    "FUSEBLK.IN"
+   ]
+  },
+  {
+   "name": "12V_F1",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "FUSEBLK.F1",
+    "BUCK_A.INP"
+   ]
+  },
+  {
+   "name": "12V_F2",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "FUSEBLK.F2",
+    "BUCK_B.INP"
+   ]
+  },
+  {
+   "name": "12V_F3",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "FUSEBLK.F3",
+    "NULL1.INP"
+   ]
+  },
+  {
+   "name": "12V_F4",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "FUSEBLK.F4",
+    "FAN.2"
+   ]
+  },
+  {
+   "name": "12V_F5",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "FUSEBLK.F5",
+    "NULL2.INP"
+   ]
+  },
+  {
+   "name": "5V_PANEL1",
+   "class": "power",
+   "status": "temporary",
+   "nodes": [
+    "BUCK_A.OUTP",
+    "CAP_A.P",
+    "PANEL1_PWR.1"
+   ]
+  },
+  {
+   "name": "5V_PANEL2",
+   "class": "power",
+   "status": "temporary",
+   "nodes": [
+    "BUCK_B.OUTP",
+    "CAP_B.P",
+    "PANEL2_PWR.1"
+   ]
+  },
+  {
+   "name": "5V_LOGIC",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "NULL1.OUTP",
+    "S3V.5V"
+   ]
+  },
+  {
+   "name": "5V_SERVO",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "NULL2.OUTP",
+    "CAP_S.P",
+    "PCA.VPLUS",
+    "SERVO1.VPLUS",
+    "SERVO2.VPLUS",
+    "SERVO3.VPLUS",
+    "SERVO4.VPLUS"
+   ]
+  },
+  {
+   "name": "USBC_IN",
+   "class": "power",
+   "status": "planned",
+   "nodes": [
+    "BANK.USBC",
+    "PDT.USBC"
+   ]
+  },
+  {
+   "name": "KP_R1",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO8",
+    "KEYPAD.R1"
+   ]
+  },
+  {
+   "name": "KP_R2",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO9",
+    "KEYPAD.R2"
+   ]
+  },
+  {
+   "name": "KP_R3",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO10",
+    "KEYPAD.R3"
+   ]
+  },
+  {
+   "name": "KP_R4",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO17",
+    "KEYPAD.R4"
+   ]
+  },
+  {
+   "name": "KP_C1",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO39",
+    "KEYPAD.C1"
+   ]
+  },
+  {
+   "name": "KP_C2",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO40",
+    "KEYPAD.C2"
+   ]
+  },
+  {
+   "name": "KP_C3",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO41",
+    "KEYPAD.C3"
+   ]
+  },
+  {
+   "name": "KP_C4",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO42",
+    "KEYPAD.C4"
+   ]
+  },
+  {
+   "name": "ENC_CLK",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO6",
+    "ENC.CLK"
+   ]
+  },
+  {
+   "name": "ENC_DT",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO7",
+    "ENC.DT"
+   ]
+  },
+  {
+   "name": "ENC_SW",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO15",
+    "ENC.SW"
+   ]
+  },
+  {
+   "name": "BUZZ_S",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO16",
+    "BUZZ.S"
+   ]
+  },
+  {
+   "name": "TM_CLK",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO4",
+    "TM.CLK"
+   ]
+  },
+  {
+   "name": "TM_DIO",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO5",
+    "TM.DIO"
+   ]
+  },
+  {
+   "name": "TOUCH_OUT",
+   "class": "sig",
+   "status": "built",
+   "nodes": [
+    "S3W.GPIO21",
+    "TP223.OUT"
+   ]
+  },
+  {
+   "name": "MIC_W_OUT",
+   "class": "sig",
+   "status": "temporary",
+   "nodes": [
+    "S3W.GPIO1",
+    "MIC_W.OUT"
+   ]
+  },
+  {
+   "name": "I2C_SDA_W",
+   "class": "i2c",
+   "status": "planned",
+   "nodes": [
+    "S3W.GPIO11",
+    "OLED_W.SDA",
+    "BME_OUT.SDA",
+    "IMU2.SDA"
+   ]
+  },
+  {
+   "name": "I2C_SCL_W",
+   "class": "i2c",
+   "status": "planned",
+   "nodes": [
+    "S3W.GPIO12",
+    "OLED_W.SCL",
+    "BME_OUT.SCL",
+    "IMU2.SCL"
+   ]
+  },
+  {
+   "name": "3V3_W",
+   "class": "power",
+   "status": "built",
+   "nodes": [
+    "S3W.3V3",
+    "ENC.PLUS",
+    "TM.VCC",
+    "TP223.VCC",
+    "OLED_W.VCC",
+    "BME_OUT.VCC",
+    "BME_OUT.CSB",
+    "BME_OUT.SDO",
+    "IMU2.VCC",
+    "IMU2.CS",
+    "MIC_W.VCC"
+   ]
+  },
+  {
+   "name": "GND_W",
+   "class": "gnd",
+   "status": "built",
+   "nodes": [
+    "S3W.GND",
+    "ENC.GND",
+    "BUZZ.MINUS",
+    "TM.GND",
+    "TP223.GND",
+    "OLED_W.GND",
+    "BME_OUT.GND",
+    "IMU2.GND",
+    "IMU2.SDO",
+    "MIC_W.GND",
+    "USBW.GND"
+   ]
+  },
+  {
+   "name": "USBW_5V",
+   "class": "power",
+   "status": "built",
+   "nodes": [
+    "USBW.VBUS",
+    "S3W.5V"
+   ]
+  }
+ ]
+}

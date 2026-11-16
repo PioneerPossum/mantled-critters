@@ -1,0 +1,4 @@
+Visor (S3 #1, 02:00:00:00:00:01) face firmware 2026-11-15: same as ../20261114-rollout (OE GPIO39, 20 MHz + clkphase=false, local mic GPIO1, OLED status page)
+plus: accepts BOTH wrist boards (02:00:00:00:00:02 and the wrist v2 board 02:00:00:00:00:03), status goes to the one heard last.
+Flash: ~/.local/bin/esptool --port /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_02:00:00:00:00:01-if00 write-flash 0x10000 proot-s3-wireless.ino.bin
+Previous: ../20261114-rollout (only accepts …:02).
